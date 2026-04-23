@@ -1,9 +1,15 @@
-import axios from 'axios'
-import type { GraphDataset, ModelType, TrainingJobEvent } from '../types/gnn'
+import type { GraphDataset, ModelType, TrainingJobEvent, TrainingRunRecord } from '../types/gnn'
+import {
+  API_WS_BASE,
+  apiClient as api,
+  extractErrorMessage,
+  getAccessToken,
+} from './client'
 
 type StartTrainingInput = {
   model: ModelType
   datasetName: string
+  customDataset?: Record<string, unknown>
 }
 
 type ApiTrainingRun = {
@@ -15,56 +21,20 @@ type ApiTrainingRun = {
   epoch_total: number
   best_accuracy: number | null
   best_loss: number | null
-}
-
-const TOKEN_KEY = 'gnnvp-access-token'
-
-const normalizeBaseUrl = (rawBase: string) => {
-  const trimmed = rawBase.replace(/\/+$/, '')
-  return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`
-}
-
-const api = axios.create({
-  baseURL: normalizeBaseUrl(import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'),
-  timeout: 10000,
-})
-
-api.interceptors.request.use((config) => {
-  const token = window.localStorage.getItem(TOKEN_KEY)
-  if (token) {
-    config.headers = config.headers ?? {}
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
-const extractErrorMessage = (error: unknown) => {
-  if (axios.isAxiosError(error)) {
-    const detail = error.response?.data?.detail
-    if (typeof detail === 'string') return detail
-    return error.message
-  }
-  return error instanceof Error ? error.message : 'Unknown error'
-}
-
-const runProfiles: Record<ModelType, { loss: number; accuracy: number }> = {
-  GCN: { loss: 1.2, accuracy: 0.49 },
-  GAT: { loss: 1.25, accuracy: 0.47 },
-  GraphSAGE: { loss: 1.1, accuracy: 0.51 },
-  GraphTransformer: { loss: 1.04, accuracy: 0.54 },
+  started_at?: string | null
+  finished_at?: string | null
+  created_at?: string
+  user_id?: number
+  metrics?: Array<{
+    id: number
+    epoch: number
+    loss: number
+    accuracy: number
+    created_at: string
+  }>
 }
 
 const jobs = new Map<string, StartTrainingInput>()
-
-const nextTrainingMetrics = (model: ModelType, epoch: number) => {
-  const profile = runProfiles[model]
-  const loss = Math.max(0.09, profile.loss * Math.exp(-epoch / 35) + 0.03 * Math.sin(epoch / 8))
-  const accuracy = Math.min(0.93, profile.accuracy + 0.44 * (1 - Math.exp(-epoch / 33)))
-  return {
-    loss: Number(loss.toFixed(4)),
-    accuracy: Number(accuracy.toFixed(4)),
-  }
-}
 
 export const listDatasets = async () => {
   try {
@@ -78,6 +48,15 @@ export const listDatasets = async () => {
 export const getDefaultDataset = async (): Promise<GraphDataset> => {
   try {
     const response = await api.get<GraphDataset>('/datasets/default')
+    return response.data
+  } catch (error) {
+    throw new Error(extractErrorMessage(error))
+  }
+}
+
+export const getDatasetByName = async (datasetName: string): Promise<GraphDataset> => {
+  try {
+    const response = await api.get<GraphDataset>(`/datasets/${encodeURIComponent(datasetName)}`)
     return response.data
   } catch (error) {
     throw new Error(extractErrorMessage(error))
@@ -120,53 +99,129 @@ export const startTrainingJob = async (input: StartTrainingInput) => {
   }
 }
 
-const patchTrainingRun = async (
-  runId: string,
-  payload: {
-    status?: ApiTrainingRun['status']
-    epoch_current?: number
-    epoch_total?: number
-    best_accuracy?: number
-    best_loss?: number
-    metric?: {
-      epoch: number
-      loss: number
-      accuracy: number
-    }
-  },
-) => {
-  await api.patch(`/training-runs/${Number(runId)}`, payload)
+const toTrainingRunRecord = (run: ApiTrainingRun): TrainingRunRecord => ({
+  id: String(run.id),
+  userId: String(run.user_id ?? ''),
+  modelType: run.model_type,
+  datasetName: run.dataset_name,
+  status: run.status,
+  epochCurrent: run.epoch_current,
+  epochTotal: run.epoch_total,
+  bestAccuracy: run.best_accuracy === null ? null : Number((run.best_accuracy * 100).toFixed(2)),
+  bestLoss: run.best_loss,
+  createdAt: run.created_at ? new Date(run.created_at).getTime() : Date.now(),
+  startedAt: run.started_at ? new Date(run.started_at).getTime() : null,
+  finishedAt: run.finished_at ? new Date(run.finished_at).getTime() : null,
+  metrics: (run.metrics ?? []).map((metric) => ({
+    epoch: metric.epoch,
+    loss: metric.loss,
+    accuracy: Number((metric.accuracy * 100).toFixed(2)),
+  })),
+})
+
+export const listTrainingRuns = async (): Promise<TrainingRunRecord[]> => {
+  try {
+    const response = await api.get<ApiTrainingRun[]>('/training-runs')
+    return response.data.map(toTrainingRunRecord)
+  } catch (error) {
+    throw new Error(extractErrorMessage(error))
+  }
 }
 
 type JobSocketListener = (event: TrainingJobEvent) => void
 
+/**
+ * Client for the backend training run WebSocket.
+ *
+ * Wire protocol (see `backend/app/api/routes/ws.py`):
+ *   - client connects to /api/v1/ws/training/{runId}?token=<JWT>
+ *   - server sends {type: 'status', status} on subscribe + transitions
+ *   - server sends {type: 'progress', epoch, epochs, loss, val_accuracy, ...}
+ *     on each epoch
+ *   - server sends {type: 'ping'} every ~30s for liveness
+ *   - server closes when status becomes completed | failed | canceled
+ *
+ * Public API is intentionally identical to the old polling implementation so
+ * the rest of the app keeps working: `.open()`, `.subscribe(listener)`,
+ * `.close('canceled'?)`. Listeners receive a uniform `TrainingJobEvent`.
+ */
 export class TrainingRunSocket {
   private readonly listeners = new Set<JobSocketListener>()
-  private timer: number | null = null
-  private epoch = 0
-  private readonly maxEpochs = 200
+  private socket: WebSocket | null = null
   private readonly runId: string
-  private readonly model: ModelType
+  private readonly customDataset: Record<string, unknown> | null
+  private closedByClient = false
+  private maxEpochs = 200
+  // Track the last real progress so terminal events can carry truthful
+  // metrics instead of zero placeholders (which would pollute the UI chart).
+  private lastEpoch = 0
+  private lastLoss = 0
+  private lastAccuracy = 0
+  private terminalEmitted = false
 
   constructor(runId: string) {
     this.runId = runId
     const record = jobs.get(runId)
-    this.model = record?.model ?? 'GCN'
+    this.customDataset = record?.customDataset ?? null
   }
 
-  open() {
-    if (this.timer !== null) return
+  private emitTerminal(status: 'completed' | 'failed' | 'canceled'): void {
+    if (this.terminalEmitted) return
+    this.terminalEmitted = true
+    const payload: TrainingJobEvent = {
+      type: 'done',
+      epoch: this.lastEpoch,
+      epochs: this.maxEpochs,
+      loss: this.lastLoss,
+      accuracy: this.lastAccuracy,
+      status,
+    }
+    for (const listener of this.listeners) listener(payload)
+  }
 
-    void patchTrainingRun(this.runId, {
-      status: 'running',
-      epoch_total: this.maxEpochs,
-    }).catch(() => undefined)
-
-    this.timer = window.setInterval(() => {
-      void this.tick().catch(() => {
-        void this.close('canceled')
+  /**
+   * Kicks off training on the backend (POST /training-runs/{id}/start) and
+   * opens the WebSocket for live progress. Both are idempotent.
+   */
+  async open(): Promise<void> {
+    if (this.socket !== null) return
+    try {
+      await api.post(`/training-runs/${Number(this.runId)}/start`, {
+        epochs: this.maxEpochs,
+        hidden_dim: 32,
+        custom_dataset: this.customDataset ?? undefined,
       })
-    }, 170)
+    } catch (error) {
+      // The run may already be running from a previous page load — surface
+      // other errors via a terminal failed event so the UI unblocks without
+      // misreporting success.
+      const message = extractErrorMessage(error)
+      this.emitTerminal('failed')
+      console.warn('training start failed', message)
+      return
+    }
+
+    const token = getAccessToken()
+    const url = `${API_WS_BASE}/ws/training/${Number(this.runId)}${
+      token ? `?token=${encodeURIComponent(token)}` : ''
+    }`
+    const socket = new WebSocket(url)
+    this.socket = socket
+
+    socket.addEventListener('message', (event) => {
+      this.handleMessage(event.data)
+    })
+    socket.addEventListener('close', () => {
+      if (!this.closedByClient) {
+        // Socket dropped before a terminal status frame arrived — treat it as
+        // a failure so listeners can unblock without claiming success.
+        this.emitTerminal('failed')
+      }
+      this.socket = null
+    })
+    socket.addEventListener('error', (event) => {
+      console.warn('training websocket error', event)
+    })
   }
 
   subscribe(listener: JobSocketListener) {
@@ -174,51 +229,76 @@ export class TrainingRunSocket {
     return () => this.listeners.delete(listener)
   }
 
-  async close(finalStatus?: 'canceled') {
-    if (this.timer !== null) {
-      window.clearInterval(this.timer)
-      this.timer = null
-    }
-
+  async close(finalStatus?: 'canceled'): Promise<void> {
+    this.closedByClient = true
     if (finalStatus === 'canceled') {
-      await patchTrainingRun(this.runId, {
-        status: 'canceled',
-        epoch_current: this.epoch,
-        epoch_total: this.maxEpochs,
-      })
+      try {
+        await api.post(`/training-runs/${Number(this.runId)}/cancel`)
+      } catch {
+        // best effort
+      }
+      // Intentionally no emitTerminal('canceled') here. The cancel path is
+      // driven by UI code (e.g. handleToggleTraining), which already flips
+      // isTraining and emits its own user-facing message. Firing a terminal
+      // event from close() would double-post ("paused" + "canceled") and
+      // redundantly call setIsTraining(false) / socket.close() from the
+      // subscriber. Server-side confirmation still arrives via a
+      // {type: 'status', status: 'canceled'} frame on the WS when the
+      // backend acknowledges the cancel, but closedByClient guards the
+      // socket-close path so only that frame (if it wins the race) will
+      // drive the subscriber.
+    }
+    if (this.socket !== null) {
+      try {
+        this.socket.close()
+      } catch {
+        // no-op
+      }
+      this.socket = null
     }
   }
 
-  private async tick() {
-    this.epoch += 1
-    const metrics = nextTrainingMetrics(this.model, this.epoch)
-    const isDone = this.epoch >= this.maxEpochs
+  private handleMessage(raw: unknown): void {
+    if (typeof raw !== 'string') return
+    let parsed: Record<string, unknown>
+    try {
+      parsed = JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      return
+    }
+    const type = parsed.type
 
-    await patchTrainingRun(this.runId, {
-      status: isDone ? 'completed' : 'running',
-      epoch_current: this.epoch,
-      epoch_total: this.maxEpochs,
-      best_accuracy: metrics.accuracy,
-      best_loss: metrics.loss,
-      metric: {
-        epoch: this.epoch,
-        loss: metrics.loss,
-        accuracy: metrics.accuracy,
-      },
-    })
-
-    const payload: TrainingJobEvent = {
-      type: isDone ? 'done' : 'progress',
-      epoch: this.epoch,
-      epochs: this.maxEpochs,
-      loss: metrics.loss,
-      accuracy: metrics.accuracy,
+    if (type === 'progress') {
+      const epoch = Number(parsed.epoch ?? 0)
+      const epochs = Number(parsed.epochs ?? this.maxEpochs)
+      this.maxEpochs = epochs
+      const loss = Number(parsed.loss ?? 0)
+      // prefer validation accuracy for display; fall back to train accuracy.
+      const accuracy = Number(
+        parsed.val_accuracy ?? parsed.train_accuracy ?? parsed.accuracy ?? 0,
+      )
+      const roundedLoss = Number(loss.toFixed(4))
+      const roundedAccuracy = Number(accuracy.toFixed(4))
+      this.lastEpoch = epoch
+      this.lastLoss = roundedLoss
+      this.lastAccuracy = roundedAccuracy
+      const payload: TrainingJobEvent = {
+        type: 'progress',
+        epoch,
+        epochs,
+        loss: roundedLoss,
+        accuracy: roundedAccuracy,
+      }
+      for (const listener of this.listeners) listener(payload)
+      return
     }
 
-    for (const listener of this.listeners) listener(payload)
-
-    if (isDone) {
-      await this.close()
+    if (type === 'status') {
+      const status = String(parsed.status ?? '')
+      if (status === 'completed' || status === 'failed' || status === 'canceled') {
+        this.emitTerminal(status)
+      }
     }
+    // 'ping' and 'status: running' are intentionally no-ops.
   }
 }

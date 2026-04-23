@@ -63,12 +63,38 @@ export type StreamEvent = {
   createdAt: number
 }
 
+export type TrainingTerminalStatus = 'completed' | 'failed' | 'canceled'
+
 export type TrainingJobEvent = {
   type: 'progress' | 'done'
   epoch: number
   epochs: number
   loss: number
   accuracy: number
+  /**
+   * Populated only on terminal `done` events. Distinguishes a successful
+   * completion (artifacts available) from a failure / user cancel / socket
+   * drop, so callers don't treat all terminations the same.
+   */
+  status?: TrainingTerminalStatus
+}
+
+export type TrainingRunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled'
+
+export type TrainingRunRecord = {
+  id: string
+  userId: string
+  modelType: ModelType
+  datasetName: string
+  status: TrainingRunStatus
+  epochCurrent: number
+  epochTotal: number
+  bestAccuracy: number | null
+  bestLoss: number | null
+  createdAt: number
+  startedAt: number | null
+  finishedAt: number | null
+  metrics: TrainingPoint[]
 }
 
 export type ExplainerFeature = {

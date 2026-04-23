@@ -59,7 +59,7 @@ export function NodeDetail({
             <strong>{selectedNode.id}</strong>
           </div>
           <div className="detail-line">
-            <span>Predicted Class</span>
+            <span>Predicted class</span>
             <strong>Class {selectedNode.label}</strong>
           </div>
           <div className="detail-line">
@@ -79,27 +79,27 @@ export function NodeDetail({
             <strong>{selectedProjection.toUpperCase()}</strong>
           </div>
           <div className="detail-line">
-            <span>Attention Head</span>
+            <span>Attention head</span>
             <strong>#{attentionHead}</strong>
           </div>
           <div className="detail-line">
-            <span>Auto Re-predict</span>
+            <span>Auto predict</span>
             <strong>{autoRepredict ? 'On' : 'Off'}</strong>
           </div>
           <div className="detail-line">
-            <span>Latest Epoch</span>
+            <span>Latest epoch</span>
             <strong>{currentEpoch}</strong>
           </div>
 
           <div className="detail-actions">
             <button type="button" className="toggle toggle-active" onClick={onRunExplain} disabled={isExplaining}>
               <Sparkles size={14} />
-              {isExplaining ? 'Explaining...' : 'Explain This Node'}
+              {isExplaining ? 'Explaining...' : 'Explain this node'}
             </button>
           </div>
 
           <div className="detail-block">
-            <h3>Feature Vector</h3>
+            <h3>Feature vector</h3>
             <div className="feature-list">
               {selectedNode.features.map((feature, index) => (
                 <div key={`${selectedNode.id}-f-${index}`} className="feature-item">
@@ -115,7 +115,7 @@ export function NodeDetail({
           <div className="detail-block">
             <h3>GNNExplainer</h3>
             <label className="field-label" htmlFor="explainer-threshold">
-              Edge Threshold: {explanationThreshold.toFixed(2)}
+              Edge threshold: {explanationThreshold.toFixed(2)}
             </label>
             <input
               id="explainer-threshold"
@@ -135,15 +135,15 @@ export function NodeDetail({
                     <span className="phase-label">No edge above threshold.</span>
                   ) : (
                     filteredExplainerEdges.map((edge) => (
-                      <span key={edge.edgeId}>
-                        {edge.source} → {edge.target} ({Math.round(edge.importance * 100)}%)
+                    <span key={edge.edgeId}>
+                        {edge.source} {'->'} {edge.target} ({Math.round(edge.importance * 100)}%)
                       </span>
                     ))
                   )}
                 </div>
               </div>
             ) : (
-              <p className="phase-label">Run explainer to view influential subgraph.</p>
+              <p className="phase-label">Run explainer to view the influential subgraph.</p>
             )}
           </div>
 

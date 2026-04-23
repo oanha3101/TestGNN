@@ -9,6 +9,14 @@ type MessagePassingTimelineProps = {
   animationSpeed: number
 }
 
+const phaseDescriptions = [
+  'Encode raw node features into a hidden representation.',
+  'Collect neighborhood context from linked nodes.',
+  'Rank which incoming signals deserve more weight.',
+  'Fuse messages back into each node hidden state.',
+  'Read out the graph state for prediction.',
+]
+
 export function MessagePassingTimeline({
   step,
   setStep,
@@ -20,27 +28,32 @@ export function MessagePassingTimeline({
   const canGoNext = step < messagePassingPhases.length - 1
 
   return (
-    <section className="timeline-card">
+    <section className="timeline-card timeline-card-refined">
       <div className="timeline-head">
-        <h3>
-          <Network size={16} />
-          Message Passing
-        </h3>
-        <span>
+        <div>
+          <h3>
+            <Network size={16} />
+            Message Passing
+          </h3>
+          <p>{phaseDescriptions[step]}</p>
+        </div>
+        <span className="timeline-step-badge">
           Step {step + 1}/{messagePassingPhases.length}
         </span>
       </div>
 
-      <div className="timeline-row" role="list" aria-label="Message passing phases">
+      <div className="phase-grid" role="list" aria-label="Message passing phases">
         {messagePassingPhases.map((phase, index) => (
           <button
             key={phase}
             type="button"
             role="listitem"
-            className={index === step ? 'phase-chip phase-chip-active' : 'phase-chip'}
+            className={`phase-step ${index === step ? 'is-active' : ''}`}
             onClick={() => setStep(index)}
           >
-            {phase}
+            <span className="phase-step-index">{String(index + 1).padStart(2, '0')}</span>
+            <strong>{phase}</strong>
+            <p>{phaseDescriptions[index]}</p>
           </button>
         ))}
       </div>

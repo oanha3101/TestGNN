@@ -1,10 +1,6 @@
 /* ─── Google Fonts ─────────────────────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700;900&family=Space+Grotesk:wght@600;700;900&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 :root {
   --bg-1: #1f1633;
   --bg-2: #150f23;
@@ -2085,5 +2081,106 @@ body {
   .topbar-nav-button {
     flex: 1;
     width: 100%;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Lab workspace — density & resizable panels
+   (24_04 workspace inherited cramped grids; relax them so the
+   Dynamic Graph / Analytics / Embedding / Builder cards breathe,
+   and let the user drag-resize cards when they want more room.)
+═══════════════════════════════════════════════════════════════ */
+
+/* Wider, more breathable center/right stacks. */
+.center-column,
+.right-column {
+  gap: 1.25rem;
+}
+
+/* Keep cards above ≥360px wide before wrapping; stack gracefully
+   on narrower viewports instead of squishing to ~200px columns. */
+.analytics-row {
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 1.25rem;
+}
+
+/* Status / epochs / accuracy / loss: 4-up on comfy widths, 2x2
+   as soon as the card is below ~560px, so labels stop wrapping
+   into three lines. */
+.metric-strip {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.85rem;
+}
+
+/* Dynamic Graph Timeline controls were unstyled — buttons, slider
+   and metric pills kissed each other. Give them explicit layout. */
+.dynamic-timeline .field-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 0.6rem;
+}
+
+.dynamic-timeline .field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.dynamic-timeline .field input[type='range'] {
+  width: 100%;
+}
+
+.dynamic-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed rgba(170, 178, 200, 0.45);
+  font-size: 0.8rem;
+  color: var(--muted, #5e6984);
+}
+
+.dynamic-metrics span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(106, 95, 193, 0.08);
+  color: #4b3fa0;
+  font-weight: 600;
+}
+
+/* User-resizable cards: drag the bottom-right corner to grow or
+   shrink the panel vertically when a chart/list doesn't fit.
+   Native CSS resize, zero deps. Cards default to fit-content so
+   nothing scrolls unless the user intentionally shrinks them. */
+.dashboard-card,
+.embedding-card,
+.timeline-card.dynamic-timeline {
+  resize: vertical;
+  overflow: auto;
+}
+
+/* Comparison + architecture stacks were also hitting 4 cols at
+   ~1100px and overflowing. Let them auto-fit too. */
+.admin-grid,
+.comparison-dashboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.comparison-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/* Medium viewports: force single-column analytics early so the
+   training card doesn't get sandwiched next to a 200px embedding. */
+@media (max-width: 1280px) {
+  .analytics-row {
+    grid-template-columns: 1fr;
   }
 }
