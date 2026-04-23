@@ -38,9 +38,6 @@ jobs:
         image: mariadb:10.6
         env:
           MARIADB_ROOT_PASSWORD: gnnvp_root
-          MARIADB_DATABASE: gnnvp_test
-          MARIADB_USER: gnnvp
-          MARIADB_PASSWORD: gnnvp
         ports:
           - 3306:3306
         options: >-
@@ -49,7 +46,11 @@ jobs:
           --health-timeout=5s
           --health-retries=20
     env:
-      DATABASE_URL: mysql+pymysql://gnnvp:gnnvp@127.0.0.1:3306/gnnvp_test
+      # Pytest suite uses in-memory SQLite (see backend/tests/conftest.py),
+      # so DATABASE_URL only matters for the smoke-import of app.core.config
+      # at collection time. Point it at the CI MariaDB so FastAPI startup
+      # would also succeed if a future test opts into the real DB.
+      DATABASE_URL: mysql+pymysql://root:gnnvp_root@127.0.0.1:3306/gnnvp
       JWT_SECRET_KEY: ci-test-secret
       APP_ENV: development
       CORS_ORIGINS: http://localhost:5173
@@ -64,17 +65,14 @@ jobs:
         run: pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
       - name: Install backend dependencies
         run: pip install -r requirements.txt pytest pytest-asyncio httpx
-      - name: Apply schema to test DB
-        # SQL files declare `CREATE DATABASE IF NOT EXISTS gnnvp; USE gnnvp;`
-        # (fine for docker-compose where MARIADB_DATABASE=gnnvp + root auto-
-        # applies them). In CI the service user `gnnvp` only has privileges
-        # on `gnnvp_test`, so we strip those two statements before piping
-        # the rest into the test DB. Keeps CI isolated from prod DB name.
+      - name: Apply schema (root)
+        # Run the real SQL files as root so CREATE DATABASE + multi-line
+        # CHARACTER SET / COLLATE / USE statements work as written. This
+        # matches docker-compose and exercises the exact schema prod uses.
         run: |
           sudo apt-get update && sudo apt-get install -y mariadb-client
           for f in sql/*.sql; do
-            sed -e '/^CREATE DATABASE/Id' -e '/^USE /Id' "$f" \
-              | mariadb -h 127.0.0.1 -u gnnvp -pgnnvp gnnvp_test
+            mariadb -h 127.0.0.1 -u root -pgnnvp_root < "$f"
           done
       - name: Run pytest
         run: pytest -q
