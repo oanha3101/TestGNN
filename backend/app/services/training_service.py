@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import AuditLog, TrainingMetric, TrainingRun, User
@@ -95,15 +95,48 @@ def get_training_run(db: Session, run_id: int) -> Optional[TrainingRun]:
     )
 
 
-def list_training_runs(db: Session, current_user: User) -> List[TrainingRun]:
+def _training_runs_base_query(current_user: User):
+    query = select(TrainingRun)
+    if current_user.role != "admin":
+        query = query.where(TrainingRun.user_id == current_user.id)
+    return query
+
+
+def count_training_runs(db: Session, current_user: User) -> int:
+    base = _training_runs_base_query(current_user)
+    return db.scalar(select(func.count()).select_from(base.subquery())) or 0
+
+
+def list_training_runs(
+    db: Session,
+    current_user: User,
+    *,
+    limit: Optional[int] = None,
+    offset: int = 0,
+) -> List[TrainingRun]:
     query = (
-        select(TrainingRun)
+        _training_runs_base_query(current_user)
         .options(joinedload(TrainingRun.metrics))
         .order_by(TrainingRun.created_at.desc())
     )
-    if current_user.role != "admin":
-        query = query.where(TrainingRun.user_id == current_user.id)
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
     return list(db.scalars(query).unique())
+
+
+def list_training_runs_page(
+    db: Session,
+    current_user: User,
+    *,
+    limit: int,
+    offset: int,
+) -> Tuple[List[TrainingRun], int]:
+    return (
+        list_training_runs(db, current_user, limit=limit, offset=offset),
+        count_training_runs(db, current_user),
+    )
 
 
 def create_training_run(
