@@ -240,6 +240,13 @@ async def _run_training_task(
     except Exception as exc:  # pragma: no cover — defensive top-level
         logger.exception("training task crashed for run %s", run_id)
         try:
+            # If the triggering exception came from inside a failed db.commit()
+            # (e.g. _record_artifacts or the final run update), the session is
+            # left in a PendingRollback state and the next query here would
+            # raise PendingRollbackError, leaving the DB row stuck at
+            # "running". Explicit rollback resets the session so we can write
+            # the terminal "failed" status reliably.
+            db.rollback()
             run = db.scalar(select(TrainingRun).where(TrainingRun.id == run_id))
             if run is not None:
                 run.status = "failed"

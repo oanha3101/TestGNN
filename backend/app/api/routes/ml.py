@@ -74,7 +74,7 @@ def get_embeddings(
     try:
         return ml_service.get_embedding_payload(run_id)
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/{run_id}/report")
@@ -87,7 +87,7 @@ def get_report(
     try:
         return ml_service.get_report_payload(run_id)
     except FileNotFoundError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/{run_id}/explain")
@@ -105,4 +105,4 @@ async def explain(
             custom_payload=payload.custom_dataset,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
