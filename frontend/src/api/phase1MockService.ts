@@ -119,10 +119,16 @@ const toTrainingRunRecord = (run: ApiTrainingRun): TrainingRunRecord => ({
   })),
 })
 
+type ApiPage<T> = { items: T[]; total: number; limit: number; offset: number }
+
 export const listTrainingRuns = async (): Promise<TrainingRunRecord[]> => {
   try {
-    const response = await api.get<ApiTrainingRun[]>('/training-runs')
-    return response.data.map(toTrainingRunRecord)
+    // Backend paginates list endpoints; we just want "the most recent runs"
+    // for the runs rail, so we pull the max page size and map items.
+    const response = await api.get<ApiPage<ApiTrainingRun>>('/training-runs', {
+      params: { limit: 100, offset: 0 },
+    })
+    return response.data.items.map(toTrainingRunRecord)
   } catch (error) {
     throw new Error(extractErrorMessage(error))
   }

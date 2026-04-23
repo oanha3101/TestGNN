@@ -137,9 +137,14 @@ const loadCurrentUser = async () => {
   }
 }
 
+type ApiPage<T> = { items: T[]; total: number; limit: number; offset: number }
+
 const loadPosts = async (): Promise<ApiPost[]> => {
-  const response = await api.get<ApiPost[]>('/posts')
-  return response.data
+  // Backend paginates; we pull the max page (100) for the community feed.
+  const response = await api.get<ApiPage<ApiPost>>('/posts', {
+    params: { limit: 100, offset: 0 },
+  })
+  return response.data.items
 }
 
 const loadBookmarks = async (): Promise<ApiBookmark[]> => {
@@ -148,8 +153,10 @@ const loadBookmarks = async (): Promise<ApiBookmark[]> => {
 }
 
 const loadAdminUsers = async () => {
-  const response = await api.get<ApiUser[]>('/admin/users')
-  return response.data
+  const response = await api.get<ApiPage<ApiUser>>('/admin/users', {
+    params: { limit: 100, offset: 0 },
+  })
+  return response.data.items
 }
 
 const loadAdminOverview = async () => {

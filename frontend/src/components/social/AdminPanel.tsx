@@ -13,15 +13,7 @@ import {
 } from 'recharts'
 import type { AdminOverview, SafeUser, TrainingPost, UserRole, UserStatus } from '../../types/social'
 import type { TrainingRunRecord } from '../../types/gnn'
-
-export type AdminTab = 'overview' | 'users' | 'moderation' | 'training'
-
-export const adminTabs: { id: AdminTab; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'users', label: 'User Access' },
-  { id: 'moderation', label: 'Moderation' },
-  { id: 'training', label: 'Training Runs' },
-]
+import type { AdminTab } from './adminTabs'
 
 type AdminPanelProps = {
   activeTab: AdminTab
