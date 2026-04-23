@@ -10,6 +10,11 @@ __pycache__/
 .coverage
 htmlcov/
 .env
+.env.local
+.env.*.local
+
+# Secrets / local dev files
+backend/login.json
 
 # Node
 node_modules/

@@ -1,15 +1,25 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.requests import Request
 
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.services.auth_service import bootstrap_admin_if_missing
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
+
+if settings.app_env == "production" and settings.jwt_secret_key == "change-me-in-production":
+    raise RuntimeError(
+        "JWT_SECRET_KEY must be set to a strong random value when APP_ENV=production"
+    )
 
 
 @asynccontextmanager
@@ -37,23 +47,17 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from starlette.requests import Request
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    print(f"Validation error: {exc.errors()}")
-    print(f"Body: {await request.body()}")
-    return JSONResponse(
-        status_code=422,
-        content={"detail": exc.errors(), "body": str(await request.body())},
-    )
+    logger.warning("Validation error on %s %s: %s", request.method, request.url.path, exc.errors())
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=settings.cors_origin_list,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
