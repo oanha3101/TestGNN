@@ -38,7 +38,14 @@ def _authenticate_ws(token: Optional[str]) -> Optional[User]:
             user_id = int(subject)
         except (TypeError, ValueError):
             return None
-        return db.scalar(select(User).where(User.id == user_id))
+        user = db.scalar(select(User).where(User.id == user_id))
+        # Mirror the REST auth dep (app/core/deps.py): suspended users must not
+        # be able to open a live training WS just because their JWT is still
+        # signed. Without this check, a user whose status was flipped to
+        # "suspended" could still see and drive realtime training streams.
+        if user is None or user.status != "active":
+            return None
+        return user
     finally:
         db.close()
 
