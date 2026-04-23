@@ -1,4 +1,3 @@
-import axios from 'axios'
 import type {
   AuthResult,
   AdminOverview,
@@ -12,38 +11,11 @@ import type {
   UserStatus,
   VaultItem,
 } from '../types/social'
-
-const TOKEN_KEY = 'gnnvp-access-token'
-
-const normalizeBaseUrl = (rawBase: string) => {
-  const trimmed = rawBase.replace(/\/+$/, '')
-  return trimmed.endsWith('/api/v1') ? trimmed : `${trimmed}/api/v1`
-}
-
-const API_BASE_URL = normalizeBaseUrl(import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000')
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-})
-
-api.interceptors.request.use((config) => {
-  const token = window.localStorage.getItem(TOKEN_KEY)
-  if (token) {
-    config.headers = config.headers ?? {}
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
-const extractErrorMessage = (error: unknown) => {
-  if (axios.isAxiosError(error)) {
-    const detail = error.response?.data?.detail
-    if (typeof detail === 'string') return detail
-    return error.message
-  }
-  return error instanceof Error ? error.message : 'Unknown error'
-}
+import {
+  TOKEN_STORAGE_KEY as TOKEN_KEY,
+  apiClient as api,
+  extractErrorMessage,
+} from './client'
 
 type ApiUser = {
   id: number

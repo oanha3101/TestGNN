@@ -7,6 +7,7 @@ import {
   startTrainingJob,
   uploadDatasetFile,
 } from './phase1MockService'
+import { fetchEmbeddings, fetchReport } from './mlService'
 import type { ModelType } from '../types/gnn'
 
 export const useDatasetListQuery = () => {
@@ -51,5 +52,27 @@ export const useTrainingRunsQuery = (enabled: boolean) => {
     queryFn: listTrainingRuns,
     enabled,
     refetchOnWindowFocus: false,
+  })
+}
+
+/**
+ * Fetch the 2D embedding produced by the ML engine after a run completes.
+ * Disabled until `runId` is a positive number.
+ */
+export const useTrainingEmbeddingsQuery = (runId: number | null) => {
+  return useQuery({
+    queryKey: ['training-embeddings', runId],
+    queryFn: () => fetchEmbeddings(runId as number),
+    enabled: typeof runId === 'number' && runId > 0,
+    staleTime: Infinity,
+  })
+}
+
+export const useTrainingReportQuery = (runId: number | null) => {
+  return useQuery({
+    queryKey: ['training-report', runId],
+    queryFn: () => fetchReport(runId as number),
+    enabled: typeof runId === 'number' && runId > 0,
+    staleTime: Infinity,
   })
 }
