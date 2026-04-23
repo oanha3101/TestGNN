@@ -1,5 +1,7 @@
+import { Moon, Sun } from 'lucide-react'
 import type { AppView } from '../../types/app'
 import type { SafeUser } from '../../types/social'
+import { useTheme } from '../../hooks/useTheme'
 
 type AppHeaderProps = {
   selectedDataset: string
@@ -24,6 +26,8 @@ export function AppHeader({
     { id: 'vault', label: 'Vault' },
     { id: 'profile', label: 'Profile' },
   ]
+
+  const { mode, toggle: toggleTheme } = useTheme()
 
   return (
     <header className="topbar">
@@ -74,6 +78,15 @@ export function AppHeader({
 
       <div className="topbar-right">
         <div className="topbar-auth">
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {mode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
           {currentUser ? (
             <>
               <span className="topbar-chip role-badge">

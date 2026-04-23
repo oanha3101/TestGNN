@@ -411,13 +411,15 @@
 }
 
 .admin-shell {
+  position: relative;
+  z-index: 1;
   min-height: 100vh;
   display: grid;
   grid-template-columns: 290px minmax(0, 1fr);
   background:
-    radial-gradient(circle at top left, rgba(125, 141, 255, 0.16), transparent 24%),
-    linear-gradient(180deg, #070b12 0%, #0b1019 100%);
-  color: #eff3ff;
+    radial-gradient(circle at top left, var(--bg-glow-a), transparent 24%),
+    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+  color: var(--text);
 }
 
 .admin-sidebar {
@@ -425,8 +427,8 @@
   flex-direction: column;
   gap: 1.4rem;
   padding: 1.5rem;
-  border-right: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(7, 11, 18, 0.82);
+  border-right: 1px solid var(--surface-border);
+  background: var(--surface);
   backdrop-filter: blur(18px);
 }
 
