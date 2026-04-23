@@ -42,7 +42,11 @@ export const useUploadDatasetMutation = () => {
 
 export const useStartTrainingMutation = () => {
   return useMutation({
-    mutationFn: (input: { model: ModelType; datasetName: string }) => startTrainingJob(input),
+    mutationFn: (input: {
+      model: ModelType
+      datasetName: string
+      customDataset?: Record<string, unknown>
+    }) => startTrainingJob(input),
   })
 }
 

@@ -108,6 +108,11 @@ function App() {
   const socketRef = useRef<TrainingRunSocket | null>(null)
   const previousUserIdRef = useRef<string | null>(null)
   const loadedDatasetKeyRef = useRef<string | null>(null)
+  // Holds the last validated custom graph payload from an upload so we can
+  // forward it to /training-runs/{id}/start when the user trains on a
+  // non-Planetoid dataset. The backend only has Cora / CiteSeer / PubMed
+  // built-in; anything else must ship the graph data on the start call.
+  const customDatasetRef = useRef<GraphDataset | null>(null)
   const baseGraphRef = useRef<{ nodes: GraphNode[]; edges: GraphEdge[] }>({
     nodes: [],
     edges: [],
@@ -412,7 +417,9 @@ function App() {
       onSuccess: (dataset) => {
         const safeName =
           dataset.name && datasetCatalog.includes(dataset.name) ? `${dataset.name} (Uploaded)` : dataset.name
-        applyDataset({ ...dataset, name: safeName || 'Custom Dataset' })
+        const payload = { ...dataset, name: safeName || 'Custom Dataset' }
+        customDatasetRef.current = payload
+        applyDataset(payload)
       },
       onError: (error) => {
         const message = error instanceof Error ? error.message : 'Upload failed.'
@@ -441,8 +448,28 @@ function App() {
     setCurrentTrainingRunId(null)
     appendEvent(`Starting ${trainingDescriptor} on ${selectedDataset}.`)
 
+    // Only Planetoid built-ins (Cora / CiteSeer / PubMed) can be loaded by
+    // name on the backend. For anything else — uploaded JSON or a workspace
+    // we reshaped client-side — we must send the graph payload so the
+    // backend's load_dataset can hit the load_custom_json branch instead of
+    // raising ValueError('Unknown dataset ...').
+    const isBuiltinDataset =
+      datasetCatalog.includes(selectedDataset) && selectedDataset !== 'Custom JSON'
+    const customDataset =
+      !isBuiltinDataset && customDatasetRef.current
+        ? (customDatasetRef.current as unknown as Record<string, unknown>)
+        : undefined
+
+    if (!isBuiltinDataset && !customDataset) {
+      appendEvent(
+        `No custom graph payload loaded for ${selectedDataset}; upload a JSON dataset before training.`,
+        'warn',
+      )
+      return
+    }
+
     startTrainingMutation.mutate(
-      { model, datasetName: selectedDataset },
+      { model, datasetName: selectedDataset, customDataset },
       {
         onSuccess: (job) => {
           setIsTraining(true)
