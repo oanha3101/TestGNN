@@ -8,3 +8,13 @@ bcrypt==4.0.1
 pydantic-settings==2.10.1
 python-dotenv==1.1.1
 email-validator==2.3.0
+
+# ML engine (PR2).
+# torch CPU wheels are hosted on a separate index. Install torch first with:
+#   pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+# then run `pip install -r requirements.txt` for the rest. GPU users can skip
+# the extra index and just install torch from PyPI.
+torch==2.5.1
+torch-geometric==2.6.1
+scikit-learn==1.5.2
+numpy==1.26.4
