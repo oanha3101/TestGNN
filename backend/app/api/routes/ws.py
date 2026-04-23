@@ -82,8 +82,12 @@ async def training_ws(
     # waiting for a completion message that will never arrive on this queue.
     state = runtime.get(run_id)
     if state is not None:
-        await websocket.send_json({"type": "status", "status": state.status})
-        if state.status in {"completed", "failed", "canceled"}:
+        # Snapshot status once so the value we send and the value we branch on
+        # can't diverge if another coroutine flips state.status across the
+        # await below (e.g. trainer finishing between send and check).
+        current_status = state.status
+        await websocket.send_json({"type": "status", "status": current_status})
+        if current_status in {"completed", "failed", "canceled"}:
             await runtime.unsubscribe(run_id, queue)
             return
 
