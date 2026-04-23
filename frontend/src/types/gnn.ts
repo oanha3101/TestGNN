@@ -71,6 +71,24 @@ export type TrainingJobEvent = {
   accuracy: number
 }
 
+export type TrainingRunStatus = 'queued' | 'running' | 'completed' | 'failed' | 'canceled'
+
+export type TrainingRunRecord = {
+  id: string
+  userId: string
+  modelType: ModelType
+  datasetName: string
+  status: TrainingRunStatus
+  epochCurrent: number
+  epochTotal: number
+  bestAccuracy: number | null
+  bestLoss: number | null
+  createdAt: number
+  startedAt: number | null
+  finishedAt: number | null
+  metrics: TrainingPoint[]
+}
+
 export type ExplainerFeature = {
   featureIndex: number
   importance: number

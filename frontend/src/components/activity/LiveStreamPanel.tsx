@@ -24,20 +24,26 @@ export function LiveStreamPanel({ events }: LiveStreamPanelProps) {
     <section className="panel stream-panel">
       <h2 className="panel-title">
         <RadioTower size={18} />
-        Job Stream
+        Activity Stream
       </h2>
-      <p className="panel-subtitle">WebSocket-like event feed from training and inference pipeline.</p>
+      <p className="panel-subtitle">Real workspace events from dataset loading, training, and explainability actions.</p>
 
       <div className="event-list">
-        {events.map((event) => (
-          <article key={event.id} className={`event-item ${levelClassMap[event.level]}`}>
-            <div className="event-head">
-              <span className="event-level">{event.level.toUpperCase()}</span>
-              <time>{toClock(event.createdAt)}</time>
-            </div>
-            <p>{event.message}</p>
-          </article>
-        ))}
+        {events.length === 0 ? (
+          <div className="empty-state">
+            <p>No activity yet. Start by loading a dataset or launching training.</p>
+          </div>
+        ) : (
+          events.map((event) => (
+            <article key={event.id} className={`event-item ${levelClassMap[event.level]}`}>
+              <div className="event-head">
+                <span className="event-level">{event.level.toUpperCase()}</span>
+                <time>{toClock(event.createdAt)}</time>
+              </div>
+              <p>{event.message}</p>
+            </article>
+          ))
+        )}
       </div>
     </section>
   )

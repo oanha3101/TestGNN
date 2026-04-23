@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { GraphDataset, ModelType, TrainingJobEvent } from '../types/gnn'
+import type { GraphDataset, ModelType, TrainingJobEvent, TrainingRunRecord } from '../types/gnn'
 
 type StartTrainingInput = {
   model: ModelType
@@ -15,6 +15,17 @@ type ApiTrainingRun = {
   epoch_total: number
   best_accuracy: number | null
   best_loss: number | null
+  started_at?: string | null
+  finished_at?: string | null
+  created_at?: string
+  user_id?: number
+  metrics?: Array<{
+    id: number
+    epoch: number
+    loss: number
+    accuracy: number
+    created_at: string
+  }>
 }
 
 const TOKEN_KEY = 'gnnvp-access-token'
@@ -84,6 +95,15 @@ export const getDefaultDataset = async (): Promise<GraphDataset> => {
   }
 }
 
+export const getDatasetByName = async (datasetName: string): Promise<GraphDataset> => {
+  try {
+    const response = await api.get<GraphDataset>(`/datasets/${encodeURIComponent(datasetName)}`)
+    return response.data
+  } catch (error) {
+    throw new Error(extractErrorMessage(error))
+  }
+}
+
 export const uploadDatasetFile = async (file: File): Promise<GraphDataset> => {
   const text = await file.text()
   let parsed: unknown
@@ -115,6 +135,35 @@ export const startTrainingJob = async (input: StartTrainingInput) => {
       status: 'QUEUED' as const,
       websocketUrl: null,
     }
+  } catch (error) {
+    throw new Error(extractErrorMessage(error))
+  }
+}
+
+const toTrainingRunRecord = (run: ApiTrainingRun): TrainingRunRecord => ({
+  id: String(run.id),
+  userId: String(run.user_id ?? ''),
+  modelType: run.model_type,
+  datasetName: run.dataset_name,
+  status: run.status,
+  epochCurrent: run.epoch_current,
+  epochTotal: run.epoch_total,
+  bestAccuracy: run.best_accuracy === null ? null : Number((run.best_accuracy * 100).toFixed(2)),
+  bestLoss: run.best_loss,
+  createdAt: run.created_at ? new Date(run.created_at).getTime() : Date.now(),
+  startedAt: run.started_at ? new Date(run.started_at).getTime() : null,
+  finishedAt: run.finished_at ? new Date(run.finished_at).getTime() : null,
+  metrics: (run.metrics ?? []).map((metric) => ({
+    epoch: metric.epoch,
+    loss: metric.loss,
+    accuracy: Number((metric.accuracy * 100).toFixed(2)),
+  })),
+})
+
+export const listTrainingRuns = async (): Promise<TrainingRunRecord[]> => {
+  try {
+    const response = await api.get<ApiTrainingRun[]>('/training-runs')
+    return response.data.map(toTrainingRunRecord)
   } catch (error) {
     throw new Error(extractErrorMessage(error))
   }
