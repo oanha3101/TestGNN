@@ -32,11 +32,20 @@ def run_dir(run_id: int) -> Path:
 
 
 def _project_2d(embeddings: Tensor) -> np.ndarray:
-    """Project node embeddings to 2D using PCA for the embedding viewer."""
+    """Project node embeddings to 2D using PCA for the embedding viewer.
+
+    Handles degenerate cases so a valid training run never fails at the
+    artifact-save step:
+      - hidden_dim ≤ 2: pad zero columns (no projection needed).
+      - n_samples < 2: sklearn's PCA requires n_components ≤ n_samples, so
+        we fall back to zero-padding instead of raising.
+    """
     emb = embeddings.detach().cpu().numpy()
-    if emb.shape[1] <= 2:
-        padded = np.zeros((emb.shape[0], 2), dtype=np.float32)
-        padded[:, : emb.shape[1]] = emb[:, : min(2, emb.shape[1])]
+    n_samples, n_features = emb.shape
+    if n_features <= 2 or n_samples < 2:
+        padded = np.zeros((n_samples, 2), dtype=np.float32)
+        copy_cols = min(2, n_features)
+        padded[:, :copy_cols] = emb[:, :copy_cols]
         return padded
     pca = PCA(n_components=2)
     return pca.fit_transform(emb).astype(np.float32)

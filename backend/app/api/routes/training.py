@@ -1,10 +1,9 @@
-from typing import List
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.db.models import User
+from app.schemas.pagination import DEFAULT_LIMIT, MAX_LIMIT, Page
 from app.schemas.training import (
     TrainingRunCreateRequest,
     TrainingRunItem,
@@ -13,7 +12,7 @@ from app.schemas.training import (
 from app.services.training_service import (
     create_training_run,
     get_training_run,
-    list_training_runs,
+    list_training_runs_page,
     to_training_run_schema,
     update_training_run,
 )
@@ -21,13 +20,20 @@ from app.services.training_service import (
 router = APIRouter()
 
 
-@router.get("", response_model=List[TrainingRunItem])
+@router.get("", response_model=Page[TrainingRunItem])
 def get_training_runs(
+    limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> List[TrainingRunItem]:
-    runs = list_training_runs(db, current_user)
-    return [to_training_run_schema(run) for run in runs]
+) -> Page[TrainingRunItem]:
+    runs, total = list_training_runs_page(db, current_user, limit=limit, offset=offset)
+    return Page[TrainingRunItem](
+        items=[to_training_run_schema(run) for run in runs],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.post("", response_model=TrainingRunItem, status_code=status.HTTP_201_CREATED)

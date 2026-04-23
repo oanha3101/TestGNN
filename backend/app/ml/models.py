@@ -31,8 +31,11 @@ ModelKind = Literal["GCN", "GAT", "GraphSAGE", "GraphTransformer"]
 class GCN(nn.Module):
     def __init__(self, in_dim: int, hidden_dim: int, num_classes: int, dropout: float = 0.5):
         super().__init__()
-        self.conv1 = GCNConv(in_dim, hidden_dim, cached=True)
-        self.conv2 = GCNConv(hidden_dim, hidden_dim, cached=True)
+        # cached=False so GNNExplainer's edge-mask optimisation actually takes
+        # effect. With cached=True GCNConv memoises the normalised adjacency
+        # on the first forward pass and ignores the mask on subsequent passes.
+        self.conv1 = GCNConv(in_dim, hidden_dim, cached=False)
+        self.conv2 = GCNConv(hidden_dim, hidden_dim, cached=False)
         self.classifier = nn.Linear(hidden_dim, num_classes)
         self.dropout = dropout
 
