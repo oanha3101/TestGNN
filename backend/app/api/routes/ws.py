@@ -69,9 +69,16 @@ async def training_ws(
     await websocket.accept()
     queue = await runtime.subscribe(run_id)
 
+    # If the run already finished before the client subscribed, the terminal
+    # broadcast has already been consumed by earlier subscribers. Send the
+    # current status and exit immediately — otherwise the client would hang
+    # waiting for a completion message that will never arrive on this queue.
     state = runtime.get(run_id)
     if state is not None:
         await websocket.send_json({"type": "status", "status": state.status})
+        if state.status in {"completed", "failed", "canceled"}:
+            await runtime.unsubscribe(run_id, queue)
+            return
 
     try:
         while True:
