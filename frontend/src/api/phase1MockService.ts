@@ -103,11 +103,31 @@ export class TrainingRunSocket {
   private readonly customDataset: Record<string, unknown> | null
   private closedByClient = false
   private maxEpochs = 200
+  // Track the last real progress so terminal events can carry truthful
+  // metrics instead of zero placeholders (which would pollute the UI chart).
+  private lastEpoch = 0
+  private lastLoss = 0
+  private lastAccuracy = 0
+  private terminalEmitted = false
 
   constructor(runId: string) {
     this.runId = runId
     const record = jobs.get(runId)
     this.customDataset = record?.customDataset ?? null
+  }
+
+  private emitTerminal(status: 'completed' | 'failed' | 'canceled'): void {
+    if (this.terminalEmitted) return
+    this.terminalEmitted = true
+    const payload: TrainingJobEvent = {
+      type: 'done',
+      epoch: this.lastEpoch,
+      epochs: this.maxEpochs,
+      loss: this.lastLoss,
+      accuracy: this.lastAccuracy,
+      status,
+    }
+    for (const listener of this.listeners) listener(payload)
   }
 
   /**
@@ -124,17 +144,10 @@ export class TrainingRunSocket {
       })
     } catch (error) {
       // The run may already be running from a previous page load — surface
-      // other errors via a terminal "done" event so the UI unblocks.
+      // other errors via a terminal failed event so the UI unblocks without
+      // misreporting success.
       const message = extractErrorMessage(error)
-      for (const listener of this.listeners) {
-        listener({
-          type: 'done',
-          epoch: 0,
-          epochs: this.maxEpochs,
-          loss: 0,
-          accuracy: 0,
-        })
-      }
+      this.emitTerminal('failed')
       console.warn('training start failed', message)
       return
     }
@@ -151,16 +164,9 @@ export class TrainingRunSocket {
     })
     socket.addEventListener('close', () => {
       if (!this.closedByClient) {
-        // Emit a terminal event so callers stop spinners/buttons.
-        for (const listener of this.listeners) {
-          listener({
-            type: 'done',
-            epoch: this.maxEpochs,
-            epochs: this.maxEpochs,
-            loss: 0,
-            accuracy: 0,
-          })
-        }
+        // Socket dropped before a terminal status frame arrived — treat it as
+        // a failure so listeners can unblock without claiming success.
+        this.emitTerminal('failed')
       }
       this.socket = null
     })
@@ -182,6 +188,7 @@ export class TrainingRunSocket {
       } catch {
         // best effort
       }
+      this.emitTerminal('canceled')
     }
     if (this.socket !== null) {
       try {
@@ -212,12 +219,17 @@ export class TrainingRunSocket {
       const accuracy = Number(
         parsed.val_accuracy ?? parsed.train_accuracy ?? parsed.accuracy ?? 0,
       )
+      const roundedLoss = Number(loss.toFixed(4))
+      const roundedAccuracy = Number(accuracy.toFixed(4))
+      this.lastEpoch = epoch
+      this.lastLoss = roundedLoss
+      this.lastAccuracy = roundedAccuracy
       const payload: TrainingJobEvent = {
         type: 'progress',
         epoch,
         epochs,
-        loss: Number(loss.toFixed(4)),
-        accuracy: Number(accuracy.toFixed(4)),
+        loss: roundedLoss,
+        accuracy: roundedAccuracy,
       }
       for (const listener of this.listeners) listener(payload)
       return
@@ -226,14 +238,7 @@ export class TrainingRunSocket {
     if (type === 'status') {
       const status = String(parsed.status ?? '')
       if (status === 'completed' || status === 'failed' || status === 'canceled') {
-        const payload: TrainingJobEvent = {
-          type: 'done',
-          epoch: this.maxEpochs,
-          epochs: this.maxEpochs,
-          loss: 0,
-          accuracy: 0,
-        }
-        for (const listener of this.listeners) listener(payload)
+        this.emitTerminal(status)
       }
     }
     // 'ping' and 'status: running' are intentionally no-ops.
