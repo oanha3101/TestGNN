@@ -19,7 +19,13 @@ const modelDescriptions: Record<ModelType, string> = {
 export function TrainingDashboard({ model, trainingHistory }: TrainingDashboardProps) {
   const currentEpoch = useModelStore((state) => state.currentEpoch)
   const isTraining = useModelStore((state) => state.isTraining)
-  const recentHistory = trainingHistory.slice(Math.max(0, trainingHistory.length - 42))
+  // Memoise the slice so its identity is stable — React Compiler refuses
+  // to preserve manual useMemo dependencies whose source may be mutated
+  // (a fresh `.slice(...)` on every render qualifies as "unstable").
+  const recentHistory = useMemo(
+    () => trainingHistory.slice(Math.max(0, trainingHistory.length - 42)),
+    [trainingHistory],
+  )
   const lastPoint = recentHistory[recentHistory.length - 1]
 
   const bestAccuracy = useMemo(() => {

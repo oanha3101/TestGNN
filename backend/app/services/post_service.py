@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.db.models import AuditLog, Post, PostBookmark, PostLike, TrainingRun, User
@@ -93,9 +93,40 @@ def to_post_schema(
     )
 
 
-def list_posts(db: Session, current_user: Optional[User]) -> List[Post]:
+def _posts_base_query(current_user: Optional[User]):
+    """Build the filtered (but unordered / unpaginated) Post select.
+
+    Centralises the visibility rules so ``list_posts`` and
+    ``count_posts`` stay in sync — mismatched predicates between the
+    two would produce incorrect ``total`` values in paginated responses.
+    """
+    query = select(Post)
+    if current_user and current_user.role == "admin":
+        return query
+    if current_user:
+        return query.where(
+            or_(
+                Post.author_id == current_user.id,
+                and_(Post.visibility == "public", Post.moderation_status != "hidden"),
+            )
+        )
+    return query.where(Post.visibility == "public", Post.moderation_status != "hidden")
+
+
+def count_posts(db: Session, current_user: Optional[User]) -> int:
+    base = _posts_base_query(current_user)
+    return db.scalar(select(func.count()).select_from(base.subquery())) or 0
+
+
+def list_posts(
+    db: Session,
+    current_user: Optional[User],
+    *,
+    limit: Optional[int] = None,
+    offset: int = 0,
+) -> List[Post]:
     query = (
-        select(Post)
+        _posts_base_query(current_user)
         .options(
             joinedload(Post.author).joinedload(User.profile),
             joinedload(Post.likes),
@@ -103,21 +134,24 @@ def list_posts(db: Session, current_user: Optional[User]) -> List[Post]:
         )
         .order_by(Post.updated_at.desc())
     )
-
-    if current_user and current_user.role == "admin":
-        return list(db.scalars(query).unique())
-
-    if current_user:
-        query = query.where(
-            or_(
-                Post.author_id == current_user.id,
-                and_(Post.visibility == "public", Post.moderation_status != "hidden"),
-            )
-        )
-    else:
-        query = query.where(Post.visibility == "public", Post.moderation_status != "hidden")
-
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
     return list(db.scalars(query).unique())
+
+
+def list_posts_page(
+    db: Session,
+    current_user: Optional[User],
+    *,
+    limit: int,
+    offset: int,
+) -> Tuple[List[Post], int]:
+    return (
+        list_posts(db, current_user, limit=limit, offset=offset),
+        count_posts(db, current_user),
+    )
 
 
 def create_post(db: Session, current_user: User, payload: PostCreateRequest) -> Post:

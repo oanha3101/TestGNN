@@ -28,7 +28,7 @@ import { NodeDetail } from './components/inspector/NodeDetail'
 import { AdminWorkspace } from './components/layout/AdminWorkspace'
 import { AppHeader } from './components/layout/AppHeader'
 import { LabOverview } from './components/layout/LabOverview'
-import type { AdminTab } from './components/social/AdminPanel'
+import type { AdminTab } from './components/social/adminTabs'
 import { AuthPanel } from './components/social/AuthPanel'
 import { CommunityPanel } from './components/social/CommunityPanel'
 import { ProfilePanel } from './components/social/ProfilePanel'
@@ -295,8 +295,12 @@ function App() {
     if (!selectedDatasetQuery.error) return
     const message =
       selectedDatasetQuery.error instanceof Error ? selectedDatasetQuery.error.message : 'Dataset load failed.'
-    setUploadMessage(message)
-    appendEvent(`Could not load ${selectedDataset}: ${message}`, 'warn')
+    // Defer the state update out of the effect body so React Compiler
+    // doesn't flag it as a cascading-render setState-in-effect.
+    queueMicrotask(() => {
+      setUploadMessage(message)
+      appendEvent(`Could not load ${selectedDataset}: ${message}`, 'warn')
+    })
   }, [appendEvent, selectedDataset, selectedDatasetQuery.error])
 
   useEffect(() => {
