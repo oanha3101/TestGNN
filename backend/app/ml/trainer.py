@@ -69,6 +69,9 @@ def train_model(
     best_acc = 0.0
     best_loss = float("inf")
     start = time.monotonic()
+    # Initialised here so `final_epoch=epoch` below is well-defined even when
+    # `epochs == 0` and the loop body never executes.
+    epoch = 0
 
     for epoch in range(1, epochs + 1):
         if should_stop and should_stop():

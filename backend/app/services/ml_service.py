@@ -45,36 +45,47 @@ def _mark_running(db, run: TrainingRun, epoch_total: int) -> None:
     db.commit()
 
 
-def _persist_epoch(db, run_id: int, metrics: EpochMetrics) -> None:
-    existing = db.scalar(
-        select(TrainingMetric).where(
-            TrainingMetric.run_id == run_id, TrainingMetric.epoch == metrics.epoch
-        )
-    )
-    if existing is None:
-        db.add(
-            TrainingMetric(
-                run_id=run_id,
-                epoch=metrics.epoch,
-                loss=metrics.loss,
-                accuracy=metrics.val_accuracy,
+def _persist_epoch(run_id: int, metrics: EpochMetrics) -> None:
+    """Persist a single epoch's metrics.
+
+    Opens its own short-lived SQLAlchemy session so it can be safely invoked
+    from the thread-pool worker that runs `train_model` (PyMySQL connections
+    are not thread-safe, so we must NOT share the session created on the
+    event-loop thread).
+    """
+    db = SessionLocal()
+    try:
+        existing = db.scalar(
+            select(TrainingMetric).where(
+                TrainingMetric.run_id == run_id, TrainingMetric.epoch == metrics.epoch
             )
         )
-    else:
-        existing.loss = metrics.loss
-        existing.accuracy = metrics.val_accuracy
+        if existing is None:
+            db.add(
+                TrainingMetric(
+                    run_id=run_id,
+                    epoch=metrics.epoch,
+                    loss=metrics.loss,
+                    accuracy=metrics.val_accuracy,
+                )
+            )
+        else:
+            existing.loss = metrics.loss
+            existing.accuracy = metrics.val_accuracy
 
-    run = db.scalar(select(TrainingRun).where(TrainingRun.id == run_id))
-    if run is None:
-        return
-    run.epoch_current = max(run.epoch_current, metrics.epoch)
-    current_best_acc = float(run.best_accuracy) if run.best_accuracy is not None else 0.0
-    if metrics.val_accuracy > current_best_acc:
-        run.best_accuracy = metrics.val_accuracy
-    current_best_loss = float(run.best_loss) if run.best_loss is not None else None
-    if current_best_loss is None or metrics.loss < current_best_loss:
-        run.best_loss = metrics.loss
-    db.commit()
+        run = db.scalar(select(TrainingRun).where(TrainingRun.id == run_id))
+        if run is None:
+            return
+        run.epoch_current = max(run.epoch_current, metrics.epoch)
+        current_best_acc = float(run.best_accuracy) if run.best_accuracy is not None else 0.0
+        if metrics.val_accuracy > current_best_acc:
+            run.best_accuracy = metrics.val_accuracy
+        current_best_loss = float(run.best_loss) if run.best_loss is not None else None
+        if current_best_loss is None or metrics.loss < current_best_loss:
+            run.best_loss = metrics.loss
+        db.commit()
+    finally:
+        db.close()
 
 
 def _record_artifacts(db, run_id: int, paths: Dict[str, Any]) -> None:
@@ -99,7 +110,11 @@ async def start_training(
 ) -> None:
     """Public entrypoint. Returns immediately; training continues in a task."""
     state = await runtime.get_or_create(run_id)
-    if state.status == "running":
+    # A run that is already queued or running must not be launched again —
+    # a duplicate task would race on the same TrainingRun row, broadcast
+    # duplicate progress events, and clobber artifacts under the same
+    # run_id directory.
+    if state.status in {"queued", "running"}:
         return
     state.cancel_event.clear()
     state.status = "queued"
@@ -151,7 +166,10 @@ async def _run_training_task(
         state = await runtime.get_or_create(run_id)
 
         def on_epoch(metrics: EpochMetrics) -> None:
-            _persist_epoch(db, run_id, metrics)
+            # on_epoch fires from the thread-pool worker running train_model
+            # (see asyncio.to_thread below). _persist_epoch opens its own
+            # session so we don't touch `db` from the wrong thread.
+            _persist_epoch(run_id, metrics)
             runtime.broadcast_threadsafe(
                 loop,
                 run_id,
