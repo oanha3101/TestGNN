@@ -1,0 +1,35 @@
+# Python
+.venv/
+venv/
+ENV/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+.env
+
+# Node
+node_modules/
+dist/
+build/
+.eslintcache
+.stylelintcache
+.prettiercache
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+frontend/dev.log
+frontend/dev.err
+backend/uvicorn.out.log
+backend/uvicorn.err.log

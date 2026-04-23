@@ -1,0 +1,22 @@
+# Python
+.venv/
+backend/.venv/
+
+__pycache__/
+*.pyc
+
+# Env
+.env
+.env.*
+
+# Logs
+*.log
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
