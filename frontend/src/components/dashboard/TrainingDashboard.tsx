@@ -1,16 +1,6 @@
 import { Activity, Gauge, Sparkles, TrendingUp } from 'lucide-react'
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
-import { modelComparison, modelInfo } from '../../data/mockGnn'
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { useMemo } from 'react'
 import { useModelStore } from '../../store/useStore'
 import type { ModelType, TrainingPoint } from '../../types/gnn'
 
@@ -19,16 +9,30 @@ type TrainingDashboardProps = {
   trainingHistory: TrainingPoint[]
 }
 
+const modelDescriptions: Record<ModelType, string> = {
+  GCN: 'Spectral baseline for compact graph classification experiments.',
+  GAT: 'Attention-based aggregation for edge-sensitive neighborhood weighting.',
+  GraphSAGE: 'Inductive neighborhood aggregator for scalable sampling workflows.',
+  GraphTransformer: 'Transformer-style graph encoder with global structural context.',
+}
+
 export function TrainingDashboard({ model, trainingHistory }: TrainingDashboardProps) {
   const currentEpoch = useModelStore((state) => state.currentEpoch)
+  const isTraining = useModelStore((state) => state.isTraining)
   const recentHistory = trainingHistory.slice(Math.max(0, trainingHistory.length - 42))
-  const activeModelStats = modelInfo[model]
   const lastPoint = recentHistory[recentHistory.length - 1]
 
-  const comparisonData = modelComparison.map((item) => ({
-    name: item.name,
-    accuracy: Number((item.accuracy * 100).toFixed(1)),
-  }))
+  const bestAccuracy = useMemo(() => {
+    if (recentHistory.length === 0) return null
+    return Math.max(...recentHistory.map((item) => item.accuracy))
+  }, [recentHistory])
+
+  const bestLoss = useMemo(() => {
+    if (recentHistory.length === 0) return null
+    return Math.min(...recentHistory.map((item) => item.loss))
+  }, [recentHistory])
+
+  const recentCheckpoints = useMemo(() => recentHistory.slice(-5).reverse(), [recentHistory])
 
   return (
     <section className="dashboard-card training-dashboard-card">
@@ -38,39 +42,39 @@ export function TrainingDashboard({ model, trainingHistory }: TrainingDashboardP
             <Activity size={18} />
             Training Analytics
           </h3>
-          <p className="dashboard-copy">{modelInfo[model].subtitle}</p>
+          <p className="dashboard-copy">{modelDescriptions[model]}</p>
         </div>
         <span className="dashboard-badge">{model}</span>
       </div>
 
       <div className="metric-strip">
         <article className="metric-card">
-          <span className="metric-label">Current epoch</span>
-          <strong>{currentEpoch}</strong>
+          <span className="metric-label">Status</span>
+          <strong>{isTraining ? 'Running' : recentHistory.length > 0 ? 'Ready' : 'Idle'}</strong>
           <span className="metric-delta">
             <Gauge size={14} />
-            / 200 planned
+            {isTraining ? 'Live updates enabled' : 'Waiting for the next run'}
           </span>
         </article>
         <article className="metric-card">
-          <span className="metric-label">Latest accuracy</span>
-          <strong>{lastPoint ? `${lastPoint.accuracy.toFixed(1)}%` : '--'}</strong>
+          <span className="metric-label">Tracked epochs</span>
+          <strong>{currentEpoch}</strong>
+          <span className="metric-delta muted">Stored in the current session</span>
+        </article>
+        <article className="metric-card">
+          <span className="metric-label">Best accuracy</span>
+          <strong>{bestAccuracy !== null ? `${bestAccuracy.toFixed(1)}%` : '--'}</strong>
           <span className="metric-delta">
             <TrendingUp size={14} />
-            Target F1 {(activeModelStats.f1 * 100).toFixed(1)}%
+            Latest {lastPoint ? `${lastPoint.accuracy.toFixed(1)}%` : '--'}
           </span>
         </article>
         <article className="metric-card">
-          <span className="metric-label">Latest loss</span>
-          <strong>{lastPoint ? lastPoint.loss.toFixed(3) : '--'}</strong>
-          <span className="metric-delta muted">Stability over last 42 epochs</span>
-        </article>
-        <article className="metric-card">
-          <span className="metric-label">Model quality</span>
-          <strong>{(activeModelStats.accuracy * 100).toFixed(1)}%</strong>
+          <span className="metric-label">Best loss</span>
+          <strong>{bestLoss !== null ? bestLoss.toFixed(3) : '--'}</strong>
           <span className="metric-delta">
             <Sparkles size={14} />
-            Baseline benchmark
+            Last {lastPoint ? lastPoint.loss.toFixed(3) : '--'}
           </span>
         </article>
       </div>
@@ -79,7 +83,7 @@ export function TrainingDashboard({ model, trainingHistory }: TrainingDashboardP
         <article className="chart-card">
           <header className="chart-card-head">
             <strong>Learning curve</strong>
-            <span>Loss and accuracy over time</span>
+            <span>Accuracy and loss from the current run history</span>
           </header>
           {recentHistory.length === 0 ? (
             <div className="chart-empty">Start training to populate the analytics timeline.</div>
@@ -124,18 +128,26 @@ export function TrainingDashboard({ model, trainingHistory }: TrainingDashboardP
 
         <article className="chart-card">
           <header className="chart-card-head">
-            <strong>Model benchmark</strong>
-            <span>Accuracy comparison across architectures</span>
+            <strong>Recent checkpoints</strong>
+            <span>Latest metric snapshots without synthetic benchmark data</span>
           </header>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={comparisonData} layout="vertical" margin={{ left: 6, right: 12 }}>
-              <CartesianGrid stroke="#eef2f7" horizontal={false} />
-              <XAxis type="number" tickLine={false} axisLine={false} />
-              <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} width={108} />
-              <Tooltip />
-              <Bar dataKey="accuracy" fill="#5b76fe" radius={[0, 12, 12, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          {recentCheckpoints.length === 0 ? (
+            <div className="chart-empty">No checkpoints yet. Run training to see metric history.</div>
+          ) : (
+            <div className="checkpoint-list">
+              {recentCheckpoints.map((point) => (
+                <article key={point.epoch} className="checkpoint-item">
+                  <div>
+                    <strong>Epoch {point.epoch}</strong>
+                    <p>
+                      Accuracy {point.accuracy.toFixed(1)}% | Loss {point.loss.toFixed(3)}
+                    </p>
+                  </div>
+                  <span>{point.accuracy.toFixed(1)}%</span>
+                </article>
+              ))}
+            </div>
+          )}
         </article>
       </div>
     </section>
