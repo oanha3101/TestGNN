@@ -198,6 +198,11 @@ async def _run_training_task(
 
         run = db.scalar(select(TrainingRun).where(TrainingRun.id == run_id))
         if run is None:
+            # Row vanished mid-training (admin deletion, cascaded user removal,
+            # manual DB cleanup). Without flipping runtime state to a terminal
+            # value, WS subscribers would hang forever and future starts for
+            # this run_id would be blocked by the queued/running guard.
+            await runtime.set_status(run_id, "failed", error="Training run was deleted")
             return
 
         if state.cancel_event.is_set():
