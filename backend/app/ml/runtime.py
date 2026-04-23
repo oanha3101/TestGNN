@@ -26,7 +26,15 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RunState:
     run_id: int
-    status: str = "queued"          # queued | running | completed | failed | canceled
+    # Lifecycle:
+    #   idle      -> a fresh RunState has never had a launched task
+    #   queued    -> start_training has accepted the request; task is about
+    #                to be created on the event loop
+    #   running   -> the trainer's inner loop has actually begun
+    #   completed / failed / canceled -> terminal states
+    # The default MUST NOT be "queued" / "running" because start_training uses
+    # those values as a guard against duplicate launches (see ml_service).
+    status: str = "idle"
     final_metric: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     cancel_event: asyncio.Event = field(default_factory=asyncio.Event)
