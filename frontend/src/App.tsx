@@ -314,11 +314,15 @@ function App() {
       if (event.type === 'done') {
         setIsTraining(false)
         void socket.close()
+        const numericId = Number(jobId)
+        if (Number.isFinite(numericId)) {
+          useModelStore.getState().setLastCompletedRunId(numericId)
+        }
         appendEvent(`Training completed for ${model} on ${selectedDataset}.`, 'success')
       }
     })
 
-    socket.open()
+    void socket.open()
   }
 
   const handleUploadFile = (file: File) => {

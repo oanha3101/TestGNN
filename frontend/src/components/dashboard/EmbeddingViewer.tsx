@@ -2,13 +2,34 @@ import { Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CartesianGrid, ResponsiveContainer, Scatter, ScatterChart, Tooltip, XAxis, YAxis } from 'recharts'
 import * as THREE from 'three'
-import { useGraphStore } from '../../store/useStore'
+import { useTrainingEmbeddingsQuery } from '../../api/hooks'
+import { useGraphStore, useModelStore } from '../../store/useStore'
 import { buildProjection } from '../../utils/projection'
 
 export function EmbeddingViewer() {
   const nodes = useGraphStore((state) => state.nodes)
   const projection = useGraphStore((state) => state.selectedProjection)
-  const projectionData = useMemo(() => buildProjection(nodes, projection), [nodes, projection])
+  const lastCompletedRunId = useModelStore((state) => state.lastCompletedRunId)
+  const embeddingsQuery = useTrainingEmbeddingsQuery(lastCompletedRunId)
+
+  // Prefer the real PCA projection produced by the ML engine after training
+  // finishes; fall back to the client-side PCA/t-SNE/UMAP projection derived
+  // from the mock graph features so the viewer still has content before the
+  // first run completes.
+  const projectionData = useMemo(() => {
+    const remote = embeddingsQuery.data
+    if (remote) {
+      return remote.embedding_2d.map(([x, y], index) => ({
+        id: `n${index}`,
+        x: Number((x * 40).toFixed(3)),
+        y: Number((y * 40).toFixed(3)),
+        label: remote.predictions[index] ?? 0,
+      }))
+    }
+    return buildProjection(nodes, projection)
+  }, [embeddingsQuery.data, nodes, projection])
+
+  const isRealEmbedding = Boolean(embeddingsQuery.data)
 
   const [mode, setMode] = useState<'2d' | '3d'>('2d')
   const canvasRef = useRef<HTMLDivElement | null>(null)
@@ -88,7 +109,11 @@ export function EmbeddingViewer() {
           <Sparkles size={16} />
           Embedding Viewer
         </h3>
-        <span>{projection.toUpperCase()} projection</span>
+        <span>
+          {isRealEmbedding
+            ? `Run #${lastCompletedRunId} · PCA (real)`
+            : `${projection.toUpperCase()} projection`}
+        </span>
       </div>
 
       <div className="embed-mode">
