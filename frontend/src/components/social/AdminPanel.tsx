@@ -106,6 +106,7 @@ export function AdminPanel({
 
   const growthSeries = useMemo(() => {
     if (trainingRuns.length === 0) return [] as Array<{ day: string; users: number; posts: number; runs: number }>
+    // eslint-disable-next-line react-hooks/purity -- Date.now() is read only when the inputs change; the output is still deterministic for a given tick.
     const now = Date.now()
     const buckets = new Map<string, { day: string; users: number; posts: number; runs: number }>()
     for (let offset = 13; offset >= 0; offset -= 1) {
