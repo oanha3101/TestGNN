@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { TrainingRunSocket } from './api/phase1MockService'
 import { runExplainer } from './api/phase2MockService'
-import { LandingPage } from './pages/LandingPage'
-import { AuthPage } from './pages/AuthPage'
 import {
   buildArchitecturePreset,
   buildTemporalSnapshots,
   defaultGraphTransformerConfig,
 } from './api/phase3MockService'
-import { TrainingRunSocket } from './api/phase1MockService'
 import {
+  useDatasetByNameQuery,
   useDatasetListQuery,
-  useDefaultDatasetQuery,
   useStartTrainingMutation,
+  useTrainingRunsQuery,
   useUploadDatasetMutation,
 } from './api/hooks'
 import { LiveStreamPanel } from './components/activity/LiveStreamPanel'
@@ -26,14 +25,18 @@ import { TrainingDashboard } from './components/dashboard/TrainingDashboard'
 import { GraphCanvas } from './components/graph/GraphCanvas'
 import { MessagePassingTimeline } from './components/graph/MessagePassingTimeline'
 import { NodeDetail } from './components/inspector/NodeDetail'
+import { AdminWorkspace } from './components/layout/AdminWorkspace'
 import { AppHeader } from './components/layout/AppHeader'
-import { AdminPanel } from './components/social/AdminPanel'
+import { LabOverview } from './components/layout/LabOverview'
+import type { AdminTab } from './components/social/AdminPanel'
 import { AuthPanel } from './components/social/AuthPanel'
 import { CommunityPanel } from './components/social/CommunityPanel'
 import { ProfilePanel } from './components/social/ProfilePanel'
 import { VaultPanel } from './components/social/VaultPanel'
-import { initialStreamEvents, messagePassingPhases } from './data/mockGnn'
+import { messagePassingPhases } from './data/mockGnn'
 import { useSocialPlatform } from './hooks/useSocialPlatform'
+import { AuthPage } from './pages/AuthPage'
+import { LandingPage } from './pages/LandingPage'
 import { useGraphStore, useModelStore } from './store/useStore'
 import type { AppView } from './types/app'
 import type {
@@ -75,28 +78,23 @@ const repredictNodes = (nodes: GraphNode[]) => {
   }))
 }
 
-const makeRandomAttention = () => [
-  Number((0.12 + Math.random() * 0.8).toFixed(3)),
-  Number((0.12 + Math.random() * 0.8).toFixed(3)),
-  Number((0.12 + Math.random() * 0.8).toFixed(3)),
-  Number((0.12 + Math.random() * 0.8).toFixed(3)),
-]
+const makeRandomAttention = () =>
+  [0, 1, 2, 3].map(() => Number((0.12 + Math.random() * 0.8).toFixed(3)))
 
 function App() {
-  // ── Screen routing: 'landing' → 'auth' → 'app' ──────────────
   const [appScreen, setAppScreen] = useState<'landing' | 'auth' | 'app'>('landing')
-
   const [model, setModel] = useState<ModelType>('GAT')
   const [messageStep, setMessageStep] = useState(0)
   const [autoPlay, setAutoPlay] = useState(true)
   const [animationSpeed, setAnimationSpeed] = useState(1.2)
-  const [uploadMessage, setUploadMessage] = useState('Upload JSON graph dataset to replace current graph.')
+  const [uploadMessage, setUploadMessage] = useState('Upload a JSON graph dataset to replace the current workspace.')
   const [history, setHistory] = useState<TrainingPoint[]>([])
-  const [streamEvents, setStreamEvents] = useState<StreamEvent[]>(initialStreamEvents)
+  const [streamEvents, setStreamEvents] = useState<StreamEvent[]>([])
   const [explanation, setExplanation] = useState<ExplainerResult | null>(null)
   const [explanationThreshold, setExplanationThreshold] = useState(0.5)
   const [isExplaining, setIsExplaining] = useState(false)
   const [activeView, setActiveView] = useState<AppView>('lab')
+  const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>('overview')
   const [currentTrainingRunId, setCurrentTrainingRunId] = useState<string | null>(null)
   const [transformerConfig, setTransformerConfig] = useState<GraphTransformerConfig>(
     defaultGraphTransformerConfig,
@@ -108,7 +106,13 @@ function App() {
   const [temporalSnapshots, setTemporalSnapshots] = useState<TemporalSnapshot[]>([])
 
   const socketRef = useRef<TrainingRunSocket | null>(null)
-  const initializedDatasetRef = useRef(false)
+  const previousUserIdRef = useRef<string | null>(null)
+  const loadedDatasetKeyRef = useRef<string | null>(null)
+  // Holds the last validated custom graph payload from an upload so we can
+  // forward it to /training-runs/{id}/start when the user trains on a
+  // non-Planetoid dataset. The backend only has Cora / CiteSeer / PubMed
+  // built-in; anything else must ship the graph data on the start call.
+  const customDatasetRef = useRef<GraphDataset | null>(null)
   const baseGraphRef = useRef<{ nodes: GraphNode[]; edges: GraphEdge[] }>({
     nodes: [],
     edges: [],
@@ -127,6 +131,7 @@ function App() {
   const selectedDataset = useModelStore((state) => state.selectedDataset)
   const currentEpoch = useModelStore((state) => state.currentEpoch)
   const autoRepredict = useModelStore((state) => state.autoRepredict)
+  const trainingProgress = useModelStore((state) => state.trainingProgress)
   const setIsTraining = useModelStore((state) => state.setIsTraining)
   const setCurrentModelId = useModelStore((state) => state.setCurrentModelId)
   const setTrainingProgress = useModelStore((state) => state.setTrainingProgress)
@@ -134,7 +139,11 @@ function App() {
   const setSelectedDataset = useModelStore((state) => state.setSelectedDataset)
 
   const datasetsQuery = useDatasetListQuery()
-  const defaultDatasetQuery = useDefaultDatasetQuery()
+  const datasetCatalog = datasetsQuery.data ?? []
+  const selectedDatasetQuery = useDatasetByNameQuery(
+    selectedDataset,
+    datasetCatalog.includes(selectedDataset) && selectedDataset !== 'Custom JSON',
+  )
   const uploadDatasetMutation = useUploadDatasetMutation()
   const startTrainingMutation = useStartTrainingMutation()
 
@@ -163,10 +172,12 @@ function App() {
     setUserStatus,
     removePostAsAdmin,
   } = useSocialPlatform()
+  const trainingRunsQuery = useTrainingRunsQuery(Boolean(currentUser))
+  const trainingRuns = trainingRunsQuery.data ?? []
   const activeScreen = currentUser ? 'app' : appScreen
 
   const appendEvent = useCallback((message: string, level: StreamEvent['level'] = 'info') => {
-    setStreamEvents((prev) => [toEvent(message, level), ...prev].slice(0, 16))
+    setStreamEvents((prev) => [toEvent(message, level), ...prev].slice(0, 18))
   }, [])
 
   const regenerateTemporalSnapshots = useCallback((nextNodes: GraphNode[], nextEdges: GraphEdge[]) => {
@@ -216,7 +227,7 @@ function App() {
   const restoreBaseGraph = useCallback(() => {
     const baseGraph = baseGraphRef.current
     if (baseGraph.nodes.length === 0) return
-    applyGraphState(baseGraph.nodes, baseGraph.edges, 'Returned to base static graph.', {
+    applyGraphState(baseGraph.nodes, baseGraph.edges, 'Returned to the base static graph.', {
       skipRepredict: true,
       preserveAsBase: false,
     })
@@ -234,6 +245,9 @@ function App() {
   const applyDataset = useCallback(
     (dataset: GraphDataset) => {
       const graph = toGraphEntities(dataset)
+      const datasetKey = `${dataset.name}:${dataset.nodes.length}:${dataset.edges.length}`
+
+      loadedDatasetKeyRef.current = datasetKey
       applyGraphState(graph.nodes, graph.edges, undefined, { preserveAsBase: true })
       setSelectedDataset(dataset.name)
       setUploadMessage(`Loaded "${dataset.name}" with ${graph.nodes.length} nodes and ${graph.edges.length} edges.`)
@@ -252,10 +266,38 @@ function App() {
   const selectedNodeId = selectedNodes[0] ?? null
 
   useEffect(() => {
-    if (!defaultDatasetQuery.data || initializedDatasetRef.current) return
-    applyDataset(defaultDatasetQuery.data)
-    initializedDatasetRef.current = true
-  }, [applyDataset, defaultDatasetQuery.data])
+    const nextUserId = currentUser?.id ?? null
+    const previousUserId = previousUserIdRef.current
+
+    if (nextUserId && nextUserId !== previousUserId && currentUser) {
+      setActiveView(currentUser.role === 'admin' ? 'admin' : 'lab')
+      setActiveAdminTab('overview')
+    }
+
+    if (!nextUserId && previousUserId) {
+      setActiveView('lab')
+      setActiveAdminTab('overview')
+    }
+
+    previousUserIdRef.current = nextUserId
+  }, [currentUser])
+
+  useEffect(() => {
+    if (!selectedDatasetQuery.data) return
+    const dataset = selectedDatasetQuery.data
+    const datasetKey = `${dataset.name}:${dataset.nodes.length}:${dataset.edges.length}`
+    if (loadedDatasetKeyRef.current === datasetKey) return
+    loadedDatasetKeyRef.current = datasetKey
+    applyDataset(dataset)
+  }, [applyDataset, selectedDatasetQuery.data])
+
+  useEffect(() => {
+    if (!selectedDatasetQuery.error) return
+    const message =
+      selectedDatasetQuery.error instanceof Error ? selectedDatasetQuery.error.message : 'Dataset load failed.'
+    setUploadMessage(message)
+    appendEvent(`Could not load ${selectedDataset}: ${message}`, 'warn')
+  }, [appendEvent, selectedDataset, selectedDatasetQuery.error])
 
   useEffect(() => {
     setCurrentModelId(`model-${model.toLowerCase()}`)
@@ -295,37 +337,92 @@ function App() {
     socketRef.current = socket
 
     socket.subscribe((event) => {
-      setCurrentEpoch(event.epoch)
-      setTrainingProgress((event.epoch / event.epochs) * 100)
-      setHistory((prev) => [
-        ...prev,
-        { epoch: event.epoch, loss: event.loss, accuracy: Number((event.accuracy * 100).toFixed(2)) },
-      ])
+      const isTerminal = event.type === 'done'
+      const succeeded = isTerminal && event.status === 'completed'
 
-      if (event.epoch % 10 === 0 || event.type === 'done') {
+      // Only feed real progress frames into the chart. Terminal events can
+      // fire on failure/cancel with stale "last seen" metrics and would
+      // otherwise duplicate or distort the last point on the chart.
+      if (!isTerminal) {
+        setCurrentEpoch(event.epoch)
+        setTrainingProgress((event.epoch / event.epochs) * 100)
+        setHistory((prev) => [
+          ...prev,
+          { epoch: event.epoch, loss: event.loss, accuracy: Number((event.accuracy * 100).toFixed(2)) },
+        ])
+      }
+
+      if (!isTerminal && event.epoch % 10 === 0) {
         appendEvent(
-          `Epoch ${event.epoch}/${event.epochs} • loss ${event.loss.toFixed(3)} • acc ${(
+          `Epoch ${event.epoch}/${event.epochs} | loss ${event.loss.toFixed(3)} | acc ${(
             event.accuracy * 100
           ).toFixed(1)}%`,
-          event.type === 'done' ? 'success' : 'info',
+          'info',
         )
       }
 
-      if (event.type === 'done') {
+      if (isTerminal) {
         setIsTraining(false)
         void socket.close()
-        appendEvent(`Training completed for ${model} on ${selectedDataset}.`, 'success')
+        void trainingRunsQuery.refetch()
+
+        if (succeeded) {
+          setTrainingProgress(100)
+          const numericId = Number(jobId)
+          if (Number.isFinite(numericId)) {
+            useModelStore.getState().setLastCompletedRunId(numericId)
+          }
+          appendEvent(
+            `Training completed for ${model} on ${selectedDataset}.`,
+            'success',
+          )
+        } else if (event.status === 'canceled') {
+          appendEvent(
+            `Training canceled for ${model} on ${selectedDataset}.`,
+            'warn',
+          )
+        } else {
+          appendEvent(
+            `Training failed for ${model} on ${selectedDataset}.`,
+            'warn',
+          )
+        }
       }
     })
 
-    socket.open()
+    void socket.open()
   }
+
+  const handleSelectDataset = useCallback(
+    (datasetName: string) => {
+      if (datasetName === selectedDataset) return
+      setExplanation(null)
+
+      if (datasetName === 'Custom JSON') {
+        setSelectedDataset(datasetName)
+        setUploadMessage('Select a JSON file to load your custom graph dataset.')
+        appendEvent('Custom dataset selected. Upload a JSON graph to replace the current workspace.')
+        return
+      }
+
+      setSelectedDataset(datasetName)
+      setUploadMessage(`Loading "${datasetName}" from the dataset catalog...`)
+      appendEvent(`Loading dataset: ${datasetName}.`)
+    },
+    [appendEvent, selectedDataset, setSelectedDataset],
+  )
 
   const handleUploadFile = (file: File) => {
     uploadDatasetMutation.mutate(file, {
-      onSuccess: (dataset) => applyDataset(dataset),
+      onSuccess: (dataset) => {
+        const safeName =
+          dataset.name && datasetCatalog.includes(dataset.name) ? `${dataset.name} (Uploaded)` : dataset.name
+        const payload = { ...dataset, name: safeName || 'Custom Dataset' }
+        customDatasetRef.current = payload
+        applyDataset(payload)
+      },
       onError: (error) => {
-        const message = error instanceof Error ? error.message : 'Upload failed'
+        const message = error instanceof Error ? error.message : 'Upload failed.'
         setUploadMessage(message)
         appendEvent(`Dataset upload failed: ${message}`, 'warn')
       },
@@ -342,6 +439,7 @@ function App() {
       void socketRef.current?.close('canceled')
       socketRef.current = null
       setIsTraining(false)
+      void trainingRunsQuery.refetch()
       appendEvent('Training paused by user.', 'warn')
       return
     }
@@ -350,19 +448,41 @@ function App() {
     setCurrentTrainingRunId(null)
     appendEvent(`Starting ${trainingDescriptor} on ${selectedDataset}.`)
 
+    // Only Planetoid built-ins (Cora / CiteSeer / PubMed) can be loaded by
+    // name on the backend. For anything else — uploaded JSON or a workspace
+    // we reshaped client-side — we must send the graph payload so the
+    // backend's load_dataset can hit the load_custom_json branch instead of
+    // raising ValueError('Unknown dataset ...').
+    const isBuiltinDataset =
+      datasetCatalog.includes(selectedDataset) && selectedDataset !== 'Custom JSON'
+    const customDataset =
+      !isBuiltinDataset && customDatasetRef.current
+        ? (customDatasetRef.current as unknown as Record<string, unknown>)
+        : undefined
+
+    if (!isBuiltinDataset && !customDataset) {
+      appendEvent(
+        `No custom graph payload loaded for ${selectedDataset}; upload a JSON dataset before training.`,
+        'warn',
+      )
+      return
+    }
+
     startTrainingMutation.mutate(
-      { model, datasetName: selectedDataset },
+      { model, datasetName: selectedDataset, customDataset },
       {
         onSuccess: (job) => {
           setIsTraining(true)
           setCurrentTrainingRunId(job.jobId)
           appendEvent(`Job queued: ${job.jobId}`)
+          void trainingRunsQuery.refetch()
           openTrainingSocket(job.jobId)
         },
-        onError: () => {
+        onError: (error) => {
+          const message = error instanceof Error ? error.message : 'Could not start training job.'
           setIsTraining(false)
           setCurrentTrainingRunId(null)
-          appendEvent('Could not start training job.', 'warn')
+          appendEvent(message, 'warn')
         },
       },
     )
@@ -412,9 +532,10 @@ function App() {
           (edge.source === target && edge.target === source),
       )
       if (exists) {
-        appendEvent(`Edge ${source} ↔ ${target} already exists.`, 'warn')
+        appendEvent(`Edge ${source} <-> ${target} already exists.`, 'warn')
         return
       }
+
       const newEdge: GraphEdge = {
         id: `e${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
         source,
@@ -422,7 +543,8 @@ function App() {
         weight: 1,
         attentionByHead: makeRandomAttention(),
       }
-      applyGraphState(nodes, [...edges, newEdge], `Edge created: ${source} → ${target}.`, {
+
+      applyGraphState(nodes, [...edges, newEdge], `Edge created: ${source} -> ${target}.`, {
         preserveAsBase: true,
       })
     },
@@ -455,11 +577,7 @@ function App() {
     setIsExplaining(true)
     appendEvent(`Running explainer for ${selectedNodeId}...`)
     try {
-      const result = await runExplainer({
-        nodeId: selectedNodeId,
-        nodes,
-        edges,
-      })
+      const result = await runExplainer({ nodeId: selectedNodeId, nodes, edges })
       setExplanation(result)
       appendEvent(`Explainer complete for ${selectedNodeId}. Score ${(result.score * 100).toFixed(1)}%.`, 'success')
     } catch (error) {
@@ -490,7 +608,7 @@ function App() {
       if (enabled) {
         setTemporalStep(0)
         applyTemporalStep(0)
-        appendEvent('Temporal mode enabled. Use timeline to inspect dynamic graph states.')
+        appendEvent('Temporal mode enabled. Use the timeline to inspect dynamic graph states.')
         return
       }
       restoreBaseGraph()
@@ -512,7 +630,7 @@ function App() {
       return (
         <main className="single-layout">
           <section className="panel social-panel">
-            <h2 className="panel-title">Loading social workspace...</h2>
+            <h2 className="panel-title">Loading workspace...</h2>
           </section>
         </main>
       )
@@ -574,21 +692,6 @@ function App() {
       )
     }
 
-    if (activeView === 'admin' && currentUser.role === 'admin') {
-      return (
-        <main className="single-layout">
-          <AdminPanel
-            overview={adminOverview}
-            users={socialUsers}
-            posts={allSocialPosts}
-            onSetUserRole={setUserRole}
-            onSetUserStatus={setUserStatus}
-            onRemovePost={removePostAsAdmin}
-          />
-        </main>
-      )
-    }
-
     return (
       <main className="single-layout">
         <CommunityPanel
@@ -611,12 +714,10 @@ function App() {
     )
   }
 
-  // ── Screen: Landing ──────────────────────────────────────────
   if (activeScreen === 'landing') {
     return <LandingPage onGetStarted={() => setAppScreen('auth')} />
   }
 
-  // ── Screen: Auth ─────────────────────────────────────────────
   if (activeScreen === 'auth' && !currentUser) {
     return (
       <AuthPage
@@ -633,21 +734,39 @@ function App() {
     )
   }
 
+  if (currentUser?.role === 'admin' && activeView === 'admin') {
+    return (
+      <AdminWorkspace
+        currentUser={currentUser}
+        activeTab={activeAdminTab}
+        onTabChange={setActiveAdminTab}
+        onViewChange={handleViewChange}
+        onLogout={async () => {
+          await logout()
+          setAppScreen('landing')
+        }}
+        overview={adminOverview}
+        users={socialUsers}
+        posts={allSocialPosts}
+        trainingRuns={trainingRuns}
+        onSetUserRole={setUserRole}
+        onSetUserStatus={setUserStatus}
+        onRemovePost={removePostAsAdmin}
+      />
+    )
+  }
+
   return (
     <div className="app-shell">
       <div className="bg-glow bg-glow-a" />
       <div className="bg-glow bg-glow-b" />
 
       <AppHeader
-        isTraining={isTraining}
         selectedDataset={selectedDataset}
-        currentEpoch={currentEpoch}
-        nodeCount={nodeCount}
-        edgeCount={edgeCount}
         activeView={activeView}
         currentUser={currentUser}
         onViewChange={handleViewChange}
-        onRequireAuth={() => setActiveView('community')}
+        onRequireAuth={() => setAppScreen('auth')}
         onLogout={async () => {
           await logout()
           setAppScreen('landing')
@@ -655,84 +774,97 @@ function App() {
       />
 
       {activeView === 'lab' ? (
-        <main className="layout">
-          <ControlPanel
-            model={model}
-            setModel={setModel}
-            messageStep={messageStep}
-            setMessageStep={setMessageStep}
-            autoPlay={autoPlay}
-            setAutoPlay={setAutoPlay}
-            animationSpeed={animationSpeed}
-            setAnimationSpeed={setAnimationSpeed}
-            datasets={datasetsQuery.data ?? ['Cora Citation Network', 'PubMed', 'Citeseer', 'Custom JSON']}
-            uploadMessage={uploadMessage}
-            onUploadFile={handleUploadFile}
-            onToggleTraining={handleToggleTraining}
-            isUploading={uploadDatasetMutation.isPending}
-            isQueueing={startTrainingMutation.isPending}
+        <div className="lab-page">
+          <LabOverview
+            selectedDataset={selectedDataset}
+            model={trainingDescriptor}
+            nodeCount={nodeCount}
+            edgeCount={edgeCount}
             selectedNodeCount={selectedNodes.length}
-            onAddNode={handleAddNode}
-            onDeleteSelectedNodes={handleDeleteSelectedNodes}
-            onConnectSelectedNodes={handleConnectSelectedNodes}
             temporalMode={temporalMode}
+            isTraining={isTraining}
+            currentEpoch={currentEpoch}
+            currentTrainingRunId={currentTrainingRunId}
+            trainingProgress={trainingProgress}
           />
 
-          <div className="center-column">
-            <GraphCanvas
+          <main className="layout">
+            <ControlPanel
+              model={model}
+              setModel={setModel}
               messageStep={messageStep}
-              explanation={explanation}
-              explanationThreshold={explanationThreshold}
-              onCreateEdgeRequest={connectNodes}
-              canEdit={!temporalMode}
-            />
-            <MessagePassingTimeline
-              step={messageStep}
-              setStep={setMessageStep}
+              setMessageStep={setMessageStep}
               autoPlay={autoPlay}
               setAutoPlay={setAutoPlay}
               animationSpeed={animationSpeed}
+              setAnimationSpeed={setAnimationSpeed}
+              datasets={datasetCatalog.length > 0 ? datasetCatalog : ['Cora Citation Network', 'PubMed', 'Citeseer', 'Custom JSON']}
+              uploadMessage={uploadMessage}
+              onSelectDataset={handleSelectDataset}
+              onUploadFile={handleUploadFile}
+              onToggleTraining={handleToggleTraining}
+              isUploading={uploadDatasetMutation.isPending}
+              isQueueing={startTrainingMutation.isPending}
+              isDatasetLoading={selectedDatasetQuery.isLoading}
+              selectedNodeCount={selectedNodes.length}
+              onAddNode={handleAddNode}
+              onDeleteSelectedNodes={handleDeleteSelectedNodes}
+              onConnectSelectedNodes={handleConnectSelectedNodes}
+              temporalMode={temporalMode}
             />
-            <DynamicGraphTimeline
-              enabled={temporalMode}
-              onEnabledChange={handleTemporalModeChange}
-              step={temporalStep}
-              onStepChange={handleTemporalStepChange}
-              autoPlay={temporalAutoPlay}
-              onAutoPlayChange={setTemporalAutoPlay}
-              snapshots={temporalSnapshots}
-            />
-            <div className="analytics-row">
-              <TrainingDashboard model={model} trainingHistory={history} />
-              <EmbeddingViewer />
-            </div>
-            <ModelComparisonPanel />
-            <ArchitectureBuilder
-              model={model}
-              schema={architecture}
-              onChange={setArchitecture}
-              onResetPreset={handleResetArchitecture}
-            />
-          </div>
 
-          <div className="right-column">
-            <NodeDetail
-              model={model}
-              explanation={explanation}
-              explanationThreshold={explanationThreshold}
-              isExplaining={isExplaining}
-              onRunExplain={handleRunExplainer}
-              onThresholdChange={setExplanationThreshold}
-            />
-            <AttentionVizPanel explanation={explanation} threshold={explanationThreshold} />
-            <GraphTransformerPanel
-              model={model}
-              config={transformerConfig}
-              onChange={setTransformerConfig}
-            />
-            <LiveStreamPanel events={streamEvents} />
-          </div>
-        </main>
+            <div className="center-column">
+              <GraphCanvas
+                messageStep={messageStep}
+                explanation={explanation}
+                explanationThreshold={explanationThreshold}
+                onCreateEdgeRequest={connectNodes}
+                canEdit={!temporalMode}
+              />
+              <MessagePassingTimeline
+                step={messageStep}
+                setStep={setMessageStep}
+                autoPlay={autoPlay}
+                setAutoPlay={setAutoPlay}
+                animationSpeed={animationSpeed}
+              />
+              <DynamicGraphTimeline
+                enabled={temporalMode}
+                onEnabledChange={handleTemporalModeChange}
+                step={temporalStep}
+                onStepChange={handleTemporalStepChange}
+                autoPlay={temporalAutoPlay}
+                onAutoPlayChange={setTemporalAutoPlay}
+                snapshots={temporalSnapshots}
+              />
+              <div className="analytics-row">
+                <TrainingDashboard model={model} trainingHistory={history} />
+                <EmbeddingViewer />
+              </div>
+              <ModelComparisonPanel />
+              <ArchitectureBuilder
+                model={model}
+                schema={architecture}
+                onChange={setArchitecture}
+                onResetPreset={handleResetArchitecture}
+              />
+            </div>
+
+            <div className="right-column">
+              <NodeDetail
+                model={model}
+                explanation={explanation}
+                explanationThreshold={explanationThreshold}
+                isExplaining={isExplaining}
+                onRunExplain={handleRunExplainer}
+                onThresholdChange={setExplanationThreshold}
+              />
+              <AttentionVizPanel explanation={explanation} threshold={explanationThreshold} />
+              <GraphTransformerPanel model={model} config={transformerConfig} onChange={setTransformerConfig} />
+              <LiveStreamPanel events={streamEvents} />
+            </div>
+          </main>
+        </div>
       ) : (
         renderSocialView()
       )}

@@ -110,16 +110,17 @@ export function GraphCanvas({
         label: showLabels ? node.id : '',
         hidden: isHiddenByFilter,
         borderColor: isSelected ? '#ffb287' : isExplainedNode ? '#c2ef4e' : 'transparent',
-        type: isSelected || isExplainedNode ? 'circle' : 'circle',
+        type: 'circle',
       })
     }
 
     for (const edge of edges) {
       if (!graph.hasNode(edge.source) || !graph.hasNode(edge.target)) continue
       const attention = edge.attentionByHead[attentionHead]
-      const isSelectedEdge = selectedRef.current.length > 0
-        ? selectedRef.current.includes(edge.source) || selectedRef.current.includes(edge.target)
-        : true
+      const isSelectedEdge =
+        selectedRef.current.length > 0
+          ? selectedRef.current.includes(edge.source) || selectedRef.current.includes(edge.target)
+          : true
       const explanationImportance = explanationEdgeImportance.get(edge.id)
       const isExplainedEdge = explanationImportance !== undefined
 
@@ -209,6 +210,7 @@ export function GraphCanvas({
     }
   }, [
     attentionHead,
+    canEdit,
     classFilter,
     colorMode,
     edges,
@@ -222,7 +224,6 @@ export function GraphCanvas({
     setHoveredNode,
     setSelectedNodes,
     showLabels,
-    canEdit,
   ])
 
   const zoomIn = () => {
@@ -244,41 +245,42 @@ export function GraphCanvas({
   }
 
   return (
-    <section className="canvas-card border-sentry-purple-border/40 relative overflow-hidden group">
-      <div className="absolute inset-0 bg-gradient-to-br from-sentry-purple-darker/20 to-transparent pointer-events-none" />
-      
-      <div className="canvas-head relative z-10">
-        <div className="flex items-center gap-2">
-          <Share2 size={16} className="text-sentry-lime" />
-          <h2 className="font-display font-bold uppercase tracking-tight text-lg">Neural Canvas</h2>
+    <section className="canvas-card workspace-canvas-card">
+      <div className="canvas-head">
+        <div>
+          <h2 className="panel-title">
+            <Share2 size={16} />
+            Graph Canvas
+          </h2>
+          <p className="panel-subtitle">
+            Inspect the loaded graph, select nodes, and create edges with modifier keys when editing is enabled.
+          </p>
         </div>
-        <span className="font-mono text-[10px] bg-sentry-purple-violet/60 px-2 py-1 rounded border border-sentry-purple-border/50 uppercase tracking-widest text-sentry-lime">
-          {phase}
-        </span>
+        <span className="canvas-phase-badge">{phase}</span>
       </div>
 
-      <div className="canvas-wrap mt-4 bg-sentry-purple-darker/80 border border-sentry-purple-border/30 shadow-inner">
-        <div ref={containerRef} className="sigma-container opacity-90 hover:opacity-100 transition-opacity" />
+      <div className="canvas-wrap">
+        <div ref={containerRef} className="sigma-container" />
       </div>
 
-      <div className="canvas-toolbar absolute bottom-6 right-6 flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-        <button type="button" className="w-10 h-10 bg-sentry-purple-muted/80 hover:bg-sentry-purple border border-sentry-purple-border rounded-lg shadow-xl backdrop-blur-md flex items-center justify-center transition-all" aria-label="Zoom in" onClick={zoomIn}>
-          <Plus size={18} />
-        </button>
-        <button type="button" className="w-10 h-10 bg-sentry-purple-muted/80 hover:bg-sentry-purple border border-sentry-purple-border rounded-lg shadow-xl backdrop-blur-md flex items-center justify-center transition-all" aria-label="Zoom out" onClick={zoomOut}>
-          <Minus size={18} />
-        </button>
-        <button type="button" className="w-10 h-10 bg-sentry-purple-muted/80 hover:bg-sentry-purple border border-sentry-purple-border rounded-lg shadow-xl backdrop-blur-md flex items-center justify-center transition-all" aria-label="Fit graph" onClick={fitGraph}>
-          <Maximize2 size={18} />
-        </button>
-      </div>
+      <div className="canvas-footer">
+        <p className="canvas-hint">
+          {canEdit ? 'Shift + click to multi-select. Alt + click two nodes to create an edge.' : 'Editing is locked in temporal mode.'}
+          {pendingEdgeSource ? ` Connecting from ${pendingEdgeSource}.` : ''}
+        </p>
 
-      <p className="canvas-hint mt-4 text-[10px] font-bold uppercase tracking-wider opacity-60 text-center">
-        {canEdit
-          ? 'Shift+click: multi-select • Alt+click 2 nodes: create edge'
-          : 'Locked in temporal mode'}
-        {pendingEdgeSource ? <span className="text-sentry-coral ml-2 animate-pulse">Connecting from {pendingEdgeSource}...</span> : ''}
-      </p>
+        <div className="canvas-toolbar">
+          <button type="button" aria-label="Zoom in" onClick={zoomIn}>
+            <Plus size={18} />
+          </button>
+          <button type="button" aria-label="Zoom out" onClick={zoomOut}>
+            <Minus size={18} />
+          </button>
+          <button type="button" aria-label="Fit graph" onClick={fitGraph}>
+            <Maximize2 size={18} />
+          </button>
+        </div>
+      </div>
     </section>
   )
 }
