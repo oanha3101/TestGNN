@@ -65,10 +65,16 @@ jobs:
       - name: Install backend dependencies
         run: pip install -r requirements.txt pytest pytest-asyncio httpx
       - name: Apply schema to test DB
+        # SQL files declare `CREATE DATABASE IF NOT EXISTS gnnvp; USE gnnvp;`
+        # (fine for docker-compose where MARIADB_DATABASE=gnnvp + root auto-
+        # applies them). In CI the service user `gnnvp` only has privileges
+        # on `gnnvp_test`, so we strip those two statements before piping
+        # the rest into the test DB. Keeps CI isolated from prod DB name.
         run: |
           sudo apt-get update && sudo apt-get install -y mariadb-client
           for f in sql/*.sql; do
-            mariadb -h 127.0.0.1 -u gnnvp -pgnnvp gnnvp_test < "$f"
+            sed -e '/^CREATE DATABASE/Id' -e '/^USE /Id' "$f" \
+              | mariadb -h 127.0.0.1 -u gnnvp -pgnnvp gnnvp_test
           done
       - name: Run pytest
         # Exit 5 = "no tests collected" — PR4 lands the real suite.
