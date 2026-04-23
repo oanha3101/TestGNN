@@ -1,9 +1,14 @@
 import { useMemo } from 'react'
 import { Shield, Users, FileBarChart2, UserCog, Trash2, Activity } from 'lucide-react'
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
+  CartesianGrid,
   Cell,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -68,19 +73,77 @@ export function AdminPanel({
 
   const roleBreakdown = useMemo(
     () => [
-      { label: 'Users', value: users.filter((user) => user.role === 'user').length, color: '#7d8dff' },
-      { label: 'Admins', value: users.filter((user) => user.role === 'admin').length, color: '#18c29c' },
+      { label: 'Users', value: users.filter((user) => user.role === 'user').length, color: 'var(--chart-1)' },
+      { label: 'Admins', value: users.filter((user) => user.role === 'admin').length, color: 'var(--chart-3)' },
     ],
     [users],
   )
 
   const postBreakdown = useMemo(
     () => [
-      { label: 'Public', value: summary.publicPosts, color: '#7d8dff' },
-      { label: 'Private', value: summary.privatePosts, color: '#ff996d' },
+      { label: 'Public', value: summary.publicPosts, color: 'var(--chart-1)' },
+      { label: 'Private', value: summary.privatePosts, color: 'var(--chart-4)' },
     ],
     [summary.privatePosts, summary.publicPosts],
   )
+
+  const modelBreakdown = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const run of trainingRuns) {
+      counts.set(run.modelType, (counts.get(run.modelType) ?? 0) + 1)
+    }
+    return [...counts.entries()]
+      .map(([label, value]) => ({ label, value }))
+      .sort((left, right) => right.value - left.value)
+  }, [trainingRuns])
+
+  const statusBreakdown = useMemo(() => {
+    const entries: Array<{ label: string; value: number; color: string }> = [
+      { label: 'completed', value: 0, color: 'var(--success)' },
+      { label: 'running', value: 0, color: 'var(--chart-1)' },
+      { label: 'queued', value: 0, color: 'var(--info)' },
+      { label: 'failed', value: 0, color: 'var(--danger)' },
+      { label: 'canceled', value: 0, color: 'var(--warning)' },
+    ]
+    for (const run of trainingRuns) {
+      const bucket = entries.find((entry) => entry.label === run.status)
+      if (bucket) bucket.value += 1
+    }
+    return entries.filter((entry) => entry.value > 0)
+  }, [trainingRuns])
+
+  const growthSeries = useMemo(() => {
+    if (trainingRuns.length === 0) return [] as Array<{ day: string; users: number; posts: number; runs: number }>
+    const now = Date.now()
+    const buckets = new Map<string, { day: string; users: number; posts: number; runs: number }>()
+    for (let offset = 13; offset >= 0; offset -= 1) {
+      const date = new Date(now - offset * 86400000)
+      const key = date.toISOString().slice(5, 10)
+      buckets.set(key, { day: key, users: 0, posts: 0, runs: 0 })
+    }
+    const addTo = (createdAt: number | undefined, field: 'users' | 'posts' | 'runs') => {
+      if (!createdAt) return
+      const key = new Date(createdAt).toISOString().slice(5, 10)
+      const bucket = buckets.get(key)
+      if (bucket) bucket[field] += 1
+    }
+    users.forEach((user) => addTo((user as { createdAt?: number }).createdAt, 'users'))
+    posts.forEach((post) => addTo((post as { createdAt?: number }).createdAt, 'posts'))
+    trainingRuns.forEach((run) => addTo(run.createdAt, 'runs'))
+    return [...buckets.values()]
+  }, [posts, trainingRuns, users])
+
+  const accuracyTrend = useMemo(() => {
+    return [...trainingRuns]
+      .filter((run) => typeof run.bestAccuracy === 'number')
+      .sort((left, right) => left.createdAt - right.createdAt)
+      .slice(-12)
+      .map((run, index) => ({
+        label: `#${index + 1}`,
+        accuracy: Number(((run.bestAccuracy ?? 0) * 100).toFixed(2)),
+        model: run.modelType,
+      }))
+  }, [trainingRuns])
 
   const datasetBreakdown = useMemo(() => {
     const counts = new Map<string, number>()
@@ -197,6 +260,122 @@ export function AdminPanel({
                 ))}
               </div>
             </article>
+
+            <article className="admin-chart-card">
+              <header>
+                <strong>Model usage</strong>
+                <span>Training runs by architecture</span>
+              </header>
+              {modelBreakdown.length === 0 ? (
+                <div className="empty-state"><p>No runs tracked yet.</p></div>
+              ) : (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={modelBreakdown} barSize={32}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" vertical={false} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                    <YAxis tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip />
+                    <Bar dataKey="value" fill="var(--chart-2)" radius={[10, 10, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </article>
+
+            <article className="admin-chart-card">
+              <header>
+                <strong>Run status mix</strong>
+                <span>Current lifecycle distribution</span>
+              </header>
+              {statusBreakdown.length === 0 ? (
+                <div className="empty-state"><p>No runs tracked yet.</p></div>
+              ) : (
+                <>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie data={statusBreakdown} dataKey="value" innerRadius={52} outerRadius={82} paddingAngle={3}>
+                        {statusBreakdown.map((entry) => (
+                          <Cell key={entry.label} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="chart-legend">
+                    {statusBreakdown.map((entry) => (
+                      <span key={entry.label}>
+                        <i style={{ backgroundColor: entry.color }} />
+                        {entry.label}: {entry.value}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
+            </article>
+          </div>
+
+          <div className="admin-chart-grid admin-chart-grid-wide">
+            <article className="admin-chart-card admin-chart-card-wide">
+              <header>
+                <strong>14-day activity</strong>
+                <span>New users, posts, and training runs per day</span>
+              </header>
+              {growthSeries.length === 0 ? (
+                <div className="empty-state"><p>Activity window is empty.</p></div>
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <AreaChart data={growthSeries}>
+                    <defs>
+                      <linearGradient id="adminFillRuns" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.55} />
+                        <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="adminFillPosts" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.5} />
+                        <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0.02} />
+                      </linearGradient>
+                      <linearGradient id="adminFillUsers" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--chart-3)" stopOpacity={0.5} />
+                        <stop offset="100%" stopColor="var(--chart-3)" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" vertical={false} />
+                    <XAxis dataKey="day" tickLine={false} axisLine={false} />
+                    <YAxis tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip />
+                    <Area type="monotone" dataKey="runs" stroke="var(--chart-1)" fill="url(#adminFillRuns)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="posts" stroke="var(--chart-2)" fill="url(#adminFillPosts)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="users" stroke="var(--chart-3)" fill="url(#adminFillUsers)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </article>
+
+            <article className="admin-chart-card">
+              <header>
+                <strong>Best accuracy trend</strong>
+                <span>Last {accuracyTrend.length || 0} completed runs</span>
+              </header>
+              {accuracyTrend.length === 0 ? (
+                <div className="empty-state"><p>No accuracy data yet.</p></div>
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={accuracyTrend}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-border)" vertical={false} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} />
+                    <YAxis tickLine={false} axisLine={false} domain={[0, 100]} unit="%" />
+                    <Tooltip formatter={(value) => `${Number(value).toFixed(2)}%`} />
+                    <Line
+                      type="monotone"
+                      dataKey="accuracy"
+                      stroke="var(--chart-1)"
+                      strokeWidth={2.5}
+                      dot={{ fill: 'var(--chart-1)', r: 3 }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </article>
           </div>
 
           <div className="admin-grid">
@@ -215,7 +394,7 @@ export function AdminPanel({
                     <XAxis type="number" tickLine={false} axisLine={false} />
                     <YAxis type="category" dataKey="label" tickLine={false} axisLine={false} width={110} />
                     <Tooltip />
-                    <Bar dataKey="value" fill="#7d8dff" radius={[0, 12, 12, 0]} />
+                    <Bar dataKey="value" fill="var(--chart-1)" radius={[0, 12, 12, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
