@@ -295,30 +295,59 @@ function App() {
     socketRef.current = socket
 
     socket.subscribe((event) => {
-      setCurrentEpoch(event.epoch)
-      setTrainingProgress((event.epoch / event.epochs) * 100)
-      setHistory((prev) => [
-        ...prev,
-        { epoch: event.epoch, loss: event.loss, accuracy: Number((event.accuracy * 100).toFixed(2)) },
-      ])
+      const isTerminal = event.type === 'done'
+      const succeeded = isTerminal && event.status === 'completed'
 
-      if (event.epoch % 10 === 0 || event.type === 'done') {
+      // Only feed real progress frames into the chart. Terminal events can
+      // fire on failure/cancel with stale "last seen" metrics and would
+      // otherwise duplicate or distort the last point on the chart.
+      if (!isTerminal) {
+        setCurrentEpoch(event.epoch)
+        setTrainingProgress((event.epoch / event.epochs) * 100)
+        setHistory((prev) => [
+          ...prev,
+          { epoch: event.epoch, loss: event.loss, accuracy: Number((event.accuracy * 100).toFixed(2)) },
+        ])
+      }
+
+      if (!isTerminal && event.epoch % 10 === 0) {
         appendEvent(
           `Epoch ${event.epoch}/${event.epochs} • loss ${event.loss.toFixed(3)} • acc ${(
             event.accuracy * 100
           ).toFixed(1)}%`,
-          event.type === 'done' ? 'success' : 'info',
+          'info',
         )
       }
 
-      if (event.type === 'done') {
+      if (isTerminal) {
         setIsTraining(false)
         void socket.close()
-        appendEvent(`Training completed for ${model} on ${selectedDataset}.`, 'success')
+
+        if (succeeded) {
+          setTrainingProgress(100)
+          const numericId = Number(jobId)
+          if (Number.isFinite(numericId)) {
+            useModelStore.getState().setLastCompletedRunId(numericId)
+          }
+          appendEvent(
+            `Training completed for ${model} on ${selectedDataset}.`,
+            'success',
+          )
+        } else if (event.status === 'canceled') {
+          appendEvent(
+            `Training canceled for ${model} on ${selectedDataset}.`,
+            'warn',
+          )
+        } else {
+          appendEvent(
+            `Training failed for ${model} on ${selectedDataset}.`,
+            'warn',
+          )
+        }
       }
     })
 
-    socket.open()
+    void socket.open()
   }
 
   const handleUploadFile = (file: File) => {

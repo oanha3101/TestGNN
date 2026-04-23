@@ -64,12 +64,19 @@ type ModelState = {
   trainingProgress: number
   currentEpoch: number
   autoRepredict: boolean
+  /**
+   * Latest completed training run id. Components that render post-training
+   * artifacts (embedding viewer, explainer panel) gate their REST calls on
+   * this — it's null until at least one run finishes on the backend.
+   */
+  lastCompletedRunId: number | null
   setCurrentModelId: (id: string | null) => void
   setSelectedDataset: (dataset: string) => void
   setIsTraining: (value: boolean) => void
   setTrainingProgress: (value: number) => void
   setCurrentEpoch: (epoch: number) => void
   setAutoRepredict: (value: boolean) => void
+  setLastCompletedRunId: (id: number | null) => void
 }
 
 export const useModelStore = create<ModelState>((set) => ({
@@ -79,10 +86,12 @@ export const useModelStore = create<ModelState>((set) => ({
   trainingProgress: 0,
   currentEpoch: 0,
   autoRepredict: true,
+  lastCompletedRunId: null,
   setCurrentModelId: (id) => set({ currentModelId: id }),
   setSelectedDataset: (dataset) => set({ selectedDataset: dataset }),
   setIsTraining: (value) => set({ isTraining: value }),
   setTrainingProgress: (value) => set({ trainingProgress: value }),
   setCurrentEpoch: (epoch) => set({ currentEpoch: epoch }),
   setAutoRepredict: (value) => set({ autoRepredict: value }),
+  setLastCompletedRunId: (id) => set({ lastCompletedRunId: id }),
 }))

@@ -63,12 +63,20 @@ export type StreamEvent = {
   createdAt: number
 }
 
+export type TrainingTerminalStatus = 'completed' | 'failed' | 'canceled'
+
 export type TrainingJobEvent = {
   type: 'progress' | 'done'
   epoch: number
   epochs: number
   loss: number
   accuracy: number
+  /**
+   * Populated only on terminal `done` events. Distinguishes a successful
+   * completion (artifacts available) from a failure / user cancel / socket
+   * drop, so callers don't treat all terminations the same.
+   */
+  status?: TrainingTerminalStatus
 }
 
 export type ExplainerFeature = {
