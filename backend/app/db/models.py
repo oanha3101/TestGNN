@@ -182,3 +182,19 @@ class AuditLog(Base):
     target_id: Mapped[Optional[int]] = mapped_column(BigInteger, nullable=True)
     metadata_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class Artifact(Base):
+    __tablename__ = "artifacts"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    run_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("training_runs.id", ondelete="CASCADE"), nullable=False
+    )
+    artifact_type: Mapped[str] = mapped_column(
+        Enum("checkpoint", "embedding", "report", "explain_mask", name="artifact_type"),
+        nullable=False,
+    )
+    object_key: Mapped[str] = mapped_column(String(500), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
