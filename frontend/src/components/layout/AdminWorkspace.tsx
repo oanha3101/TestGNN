@@ -1,5 +1,6 @@
 import { Activity, FlaskConical, LogOut, MessageSquareWarning, Shield, UserCircle2, Users } from 'lucide-react'
-import { AdminPanel, adminTabs, type AdminTab } from '../social/AdminPanel'
+import { AdminPanel } from '../social/AdminPanel'
+import { adminTabs, type AdminTab } from '../social/adminTabs'
 import type { AppView } from '../../types/app'
 import type { TrainingRunRecord } from '../../types/gnn'
 import type { AdminOverview, SafeUser, TrainingPost, UserRole, UserStatus } from '../../types/social'

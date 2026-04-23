@@ -1,13 +1,17 @@
-from typing import List
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_admin_user, get_db
 from app.db.models import User
 from app.schemas.admin import AdminOverview, SetUserRoleRequest, SetUserStatusRequest
+from app.schemas.pagination import DEFAULT_LIMIT, MAX_LIMIT, Page
 from app.schemas.user import UserBase
-from app.services.admin_service import get_overview, list_users, set_user_role, set_user_status
+from app.services.admin_service import (
+    get_overview,
+    list_users_page,
+    set_user_role,
+    set_user_status,
+)
 from app.services.auth_service import to_user_schema
 from app.services.post_service import delete_post
 
@@ -22,12 +26,15 @@ def admin_overview(
     return get_overview(db)
 
 
-@router.get("/users", response_model=List[UserBase])
+@router.get("/users", response_model=Page[UserBase])
 def admin_users(
+    limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+    offset: int = Query(0, ge=0),
     _: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
-) -> List[UserBase]:
-    return list_users(db)
+) -> Page[UserBase]:
+    items, total = list_users_page(db, limit=limit, offset=offset)
+    return Page[UserBase](items=items, total=total, limit=limit, offset=offset)
 
 
 @router.patch("/users/{user_id}/role", response_model=UserBase)
