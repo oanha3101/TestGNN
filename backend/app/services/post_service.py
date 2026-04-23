@@ -287,6 +287,12 @@ def toggle_bookmark(db: Session, current_user: User, post_id: int) -> None:
 
 
 def list_bookmarks(db: Session, current_user: User) -> List[BookmarkItem]:
+    # SQLAlchemy rejects mixing joinedload + selectinload for the same
+    # ``PostBookmark.post`` edge ("Loader strategies ... conflict"). The
+    # bookmark list is user-scoped and typically small, so we just
+    # joinedload the post + author chain and let the collections
+    # lazy-load inside ``to_post_schema`` — the extra queries per
+    # bookmark are negligible at this cardinality.
     bookmarks = list(
         db.scalars(
             select(PostBookmark)
@@ -295,8 +301,6 @@ def list_bookmarks(db: Session, current_user: User) -> List[BookmarkItem]:
                 joinedload(PostBookmark.post)
                 .joinedload(Post.author)
                 .joinedload(User.profile),
-                selectinload(PostBookmark.post).selectinload(Post.likes),
-                selectinload(PostBookmark.post).selectinload(Post.bookmarks),
             )
             .order_by(PostBookmark.created_at.desc())
         ).unique()

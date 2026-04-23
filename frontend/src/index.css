@@ -1459,8 +1459,10 @@ select {
 }
 .auth-footer-link:hover { opacity: 1; }
 
-/* Miro-inspired application overrides */
-:root {
+/* Miro-inspired application overrides — light theme only. The dark
+   theme already defines all these tokens at the top of this file; the
+   legacy ``:root`` selector used to clobber dark mode too. */
+[data-theme='light'] {
   --bg-1: #f5f7fb;
   --bg-2: #eef3ff;
   --surface: rgba(255, 255, 255, 0.94);
@@ -1474,13 +1476,21 @@ select {
   --danger: #ff7a59;
 }
 
-body {
+[data-theme='light'] body {
   color: var(--text);
   background-color: #f5f7fb;
   background-image:
     radial-gradient(circle at top left, rgba(255, 198, 198, 0.55), transparent 24%),
     radial-gradient(circle at top right, rgba(195, 250, 245, 0.7), transparent 26%),
     linear-gradient(180deg, #fcfdff 0%, #f3f6fb 100%);
+}
+
+[data-theme='dark'] body {
+  color: var(--text);
+  background-color: var(--bg-1);
+  background-image:
+    radial-gradient(circle at 50% 0%, var(--bg-glow-a), transparent 55%),
+    linear-gradient(var(--bg-1), var(--bg-2));
 }
 
 .app-shell {
