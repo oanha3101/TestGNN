@@ -77,6 +77,4 @@ jobs:
               | mariadb -h 127.0.0.1 -u gnnvp -pgnnvp gnnvp_test
           done
       - name: Run pytest
-        # Exit 5 = "no tests collected" — PR4 lands the real suite.
-        # Treat that as success so CI is green on PR5 alone.
-        run: pytest -q || [ $? -eq 5 ]
+        run: pytest -q
