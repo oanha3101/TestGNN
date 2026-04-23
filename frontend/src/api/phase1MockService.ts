@@ -188,7 +188,16 @@ export class TrainingRunSocket {
       } catch {
         // best effort
       }
-      this.emitTerminal('canceled')
+      // Intentionally no emitTerminal('canceled') here. The cancel path is
+      // driven by UI code (e.g. handleToggleTraining), which already flips
+      // isTraining and emits its own user-facing message. Firing a terminal
+      // event from close() would double-post ("paused" + "canceled") and
+      // redundantly call setIsTraining(false) / socket.close() from the
+      // subscriber. Server-side confirmation still arrives via a
+      // {type: 'status', status: 'canceled'} frame on the WS when the
+      // backend acknowledges the cancel, but closedByClient guards the
+      // socket-close path so only that frame (if it wins the race) will
+      // drive the subscriber.
     }
     if (this.socket !== null) {
       try {
