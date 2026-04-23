@@ -55,35 +55,44 @@ def _persist_epoch(run_id: int, metrics: EpochMetrics) -> None:
     """
     db = SessionLocal()
     try:
-        existing = db.scalar(
-            select(TrainingMetric).where(
-                TrainingMetric.run_id == run_id, TrainingMetric.epoch == metrics.epoch
-            )
-        )
-        if existing is None:
-            db.add(
-                TrainingMetric(
-                    run_id=run_id,
-                    epoch=metrics.epoch,
-                    loss=metrics.loss,
-                    accuracy=metrics.val_accuracy,
+        try:
+            existing = db.scalar(
+                select(TrainingMetric).where(
+                    TrainingMetric.run_id == run_id, TrainingMetric.epoch == metrics.epoch
                 )
             )
-        else:
-            existing.loss = metrics.loss
-            existing.accuracy = metrics.val_accuracy
+            if existing is None:
+                db.add(
+                    TrainingMetric(
+                        run_id=run_id,
+                        epoch=metrics.epoch,
+                        loss=metrics.loss,
+                        accuracy=metrics.val_accuracy,
+                    )
+                )
+            else:
+                existing.loss = metrics.loss
+                existing.accuracy = metrics.val_accuracy
 
-        run = db.scalar(select(TrainingRun).where(TrainingRun.id == run_id))
-        if run is None:
-            return
-        run.epoch_current = max(run.epoch_current, metrics.epoch)
-        current_best_acc = float(run.best_accuracy) if run.best_accuracy is not None else 0.0
-        if metrics.val_accuracy > current_best_acc:
-            run.best_accuracy = metrics.val_accuracy
-        current_best_loss = float(run.best_loss) if run.best_loss is not None else None
-        if current_best_loss is None or metrics.loss < current_best_loss:
-            run.best_loss = metrics.loss
-        db.commit()
+            run = db.scalar(select(TrainingRun).where(TrainingRun.id == run_id))
+            if run is None:
+                return
+            run.epoch_current = max(run.epoch_current, metrics.epoch)
+            current_best_acc = float(run.best_accuracy) if run.best_accuracy is not None else 0.0
+            if metrics.val_accuracy > current_best_acc:
+                run.best_accuracy = metrics.val_accuracy
+            current_best_loss = float(run.best_loss) if run.best_loss is not None else None
+            if current_best_loss is None or metrics.loss < current_best_loss:
+                run.best_loss = metrics.loss
+            db.commit()
+        except Exception:
+            # Epoch persistence must never take down the training loop. Roll
+            # the session back so the next epoch gets a clean session, and
+            # log the failure. The WebSocket channel still receives the live
+            # metric via the broadcaster; we only lose the DB row for this
+            # epoch.
+            logger.exception("failed to persist epoch %s for run %s", metrics.epoch, run_id)
+            db.rollback()
     finally:
         db.close()
 

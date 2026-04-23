@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import List, Optional, Tuple
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import AuditLog, TrainingMetric, TrainingRun, User
 from app.schemas.training import (
@@ -91,7 +91,7 @@ def get_training_run(db: Session, run_id: int) -> Optional[TrainingRun]:
     return db.scalar(
         select(TrainingRun)
         .where(TrainingRun.id == run_id)
-        .options(joinedload(TrainingRun.metrics))
+        .options(selectinload(TrainingRun.metrics))
     )
 
 
@@ -114,9 +114,12 @@ def list_training_runs(
     limit: Optional[int] = None,
     offset: int = 0,
 ) -> List[TrainingRun]:
+    # Runs can have hundreds of metric rows; joinedload here would inflate
+    # the result set by metrics-per-run. selectinload keeps it to one extra
+    # bounded query for the metric collection.
     query = (
         _training_runs_base_query(current_user)
-        .options(joinedload(TrainingRun.metrics))
+        .options(selectinload(TrainingRun.metrics))
         .order_by(TrainingRun.created_at.desc())
     )
     if offset:

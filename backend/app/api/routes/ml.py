@@ -4,16 +4,20 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.deps import get_current_user, get_db
+from app.core.rate_limit import limiter
 from app.db.models import TrainingRun, User
 from app.ml import runtime
 from app.services import ml_service
 
 router = APIRouter(prefix="/training-runs", tags=["ml"])
+
+_settings = get_settings()
 
 
 class StartTrainingRequest(BaseModel):
@@ -37,7 +41,9 @@ def _load_run_or_404(db: Session, run_id: int, user: User) -> TrainingRun:
 
 
 @router.post("/{run_id}/start", status_code=status.HTTP_202_ACCEPTED)
+@limiter.limit(_settings.rate_limit_training_start)
 async def start_run(
+    request: Request,
     run_id: int,
     payload: StartTrainingRequest,
     db: Session = Depends(get_db),

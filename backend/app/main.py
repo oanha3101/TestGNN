@@ -10,6 +10,7 @@ from starlette.requests import Request
 
 from app.api.router import api_router
 from app.core.config import get_settings
+from app.core.rate_limit import install_rate_limit_handlers
 from app.db.session import SessionLocal
 from app.services.auth_service import bootstrap_admin_if_missing
 
@@ -53,6 +54,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     logger.warning("Validation error on %s %s: %s", request.method, request.url.path, exc.errors())
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
+
+install_rate_limit_handlers(app)
 
 app.add_middleware(
     CORSMiddleware,

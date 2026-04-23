@@ -1,7 +1,7 @@
 from typing import List, Optional, Tuple
 
 from sqlalchemy import and_, func, or_, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db.models import AuditLog, Post, PostBookmark, PostLike, TrainingRun, User
 from app.schemas.post import (
@@ -125,12 +125,17 @@ def list_posts(
     limit: Optional[int] = None,
     offset: int = 0,
 ) -> List[Post]:
+    # joinedload is fine for the single-valued author->profile chain, but
+    # ``likes`` and ``bookmarks`` are collections — joinedload there would
+    # cartesian-explode each post row by (likes * bookmarks). selectinload
+    # runs a bounded second query per relationship (O(1) extra queries, not
+    # O(N)), which is the right pattern here.
     query = (
         _posts_base_query(current_user)
         .options(
             joinedload(Post.author).joinedload(User.profile),
-            joinedload(Post.likes),
-            joinedload(Post.bookmarks),
+            selectinload(Post.likes),
+            selectinload(Post.bookmarks),
         )
         .order_by(Post.updated_at.desc())
     )
@@ -191,8 +196,8 @@ def get_post(db: Session, post_id: int) -> Optional[Post]:
         .where(Post.id == post_id)
         .options(
             joinedload(Post.author).joinedload(User.profile),
-            joinedload(Post.likes),
-            joinedload(Post.bookmarks),
+            selectinload(Post.likes),
+            selectinload(Post.bookmarks),
         )
     )
 
@@ -290,8 +295,8 @@ def list_bookmarks(db: Session, current_user: User) -> List[BookmarkItem]:
                 joinedload(PostBookmark.post)
                 .joinedload(Post.author)
                 .joinedload(User.profile),
-                joinedload(PostBookmark.post).joinedload(Post.likes),
-                joinedload(PostBookmark.post).joinedload(Post.bookmarks),
+                selectinload(PostBookmark.post).selectinload(Post.likes),
+                selectinload(PostBookmark.post).selectinload(Post.bookmarks),
             )
             .order_by(PostBookmark.created_at.desc())
         ).unique()

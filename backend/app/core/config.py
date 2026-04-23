@@ -24,6 +24,14 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
+    # Rate limiting. Set rate_limit_enabled=false to disable globally (useful
+    # for tests). Values follow slowapi's string format: "<count>/<window>".
+    rate_limit_enabled: bool = True
+    rate_limit_auth_register: str = "20/hour"
+    rate_limit_auth_login: str = "15/minute"
+    rate_limit_training_start: str = "30/minute"
+    rate_limit_posts_create: str = "60/minute"
+
     @property
     def cors_origin_list(self) -> List[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

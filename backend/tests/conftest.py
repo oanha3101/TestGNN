@@ -17,6 +17,9 @@ from typing import Generator
 os.environ.setdefault("DATABASE_URL", "sqlite+pysqlite:///:memory:")
 os.environ.setdefault("JWT_SECRET_KEY", "pytest-secret-not-for-prod")
 os.environ.setdefault("APP_ENV", "test")
+# Disable rate limiting during tests — pytest hammers the same client IP
+# dozens of times in a single run and would otherwise trip the login limit.
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
