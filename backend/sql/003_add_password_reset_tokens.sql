@@ -2,6 +2,8 @@
 -- Run this once against the live schema (``mysql gnnvp < 003_add_password_reset_tokens.sql``
 -- or import via phpMyAdmin) before deploying the forgot-password endpoints.
 
+USE gnnvp;
+
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
   id BIGINT NOT NULL AUTO_INCREMENT,
   user_id BIGINT NOT NULL,
