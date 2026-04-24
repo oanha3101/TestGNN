@@ -1,0 +1,608 @@
+/* ═══════════════════════════════════════════════════════════════
+   Social Pages — shared styles for Profile, Community, Vault.
+   All colours use CSS custom properties from index.css so the
+   dark ↔ light theme toggle works automatically.
+═══════════════════════════════════════════════════════════════ */
+
+/* ─── Root wrapper ───────────────────────────────────────────── */
+.sp-root {
+  border: 1px solid var(--surface-border);
+  border-radius: 18px;
+  background: var(--surface);
+  backdrop-filter: blur(18px) saturate(180%);
+  overflow: hidden;
+  color: var(--text);
+}
+
+/* ─── Generic body padding ────────────────────────────────────── */
+.sp-body {
+  padding: 1.75rem 1.75rem 1.5rem;
+}
+
+/* ─── Header card (Community) ─────────────────────────────────── */
+.sp-header-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 1.5rem 1.75rem;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.sp-header-text h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.35rem;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 900;
+}
+
+.sp-header-text p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  max-width: 55ch;
+}
+
+.sp-header-icon {
+  color: var(--brand);
+  flex-shrink: 0;
+}
+
+/* ─── Outline button ──────────────────────────────────────────── */
+.sp-outline-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  border: 1px solid var(--surface-border-strong);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.sp-outline-btn:hover {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* ═══════ PROFILE ═══════════════════════════════════════════════ */
+.sp-profile-cover {
+  height: 160px;
+  background: var(--accent-gradient);
+  position: relative;
+}
+
+.sp-profile-avatar-wrap {
+  position: absolute;
+  bottom: -36px;
+  left: 1.75rem;
+}
+
+.sp-profile-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  border: 3px solid var(--surface-strong);
+  object-fit: cover;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.sp-avatar-upload-btn {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--surface-strong);
+  background: var(--brand);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.sp-avatar-upload-btn:hover {
+  transform: scale(1.1);
+}
+
+.sp-profile .sp-body {
+  padding-top: 3rem;
+}
+
+.sp-profile-identity {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.sp-profile-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.55rem;
+  font-weight: 900;
+}
+
+.sp-badge-icon {
+  color: var(--brand);
+}
+
+.sp-profile-email {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0 0 0.65rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.sp-profile-bio {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 55ch;
+  line-height: 1.55;
+}
+
+/* Edit form */
+.sp-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding: 1.25rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.sp-edit-form input,
+.sp-edit-form textarea {
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--text);
+  font: inherit;
+}
+
+.sp-edit-form input:focus,
+.sp-edit-form textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+
+/* ─── Metrics row ─────────────────────────────────────────────── */
+.sp-metrics-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.85rem;
+  margin-top: 1.5rem;
+}
+
+.sp-metric-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.sp-metric-label {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.sp-metric-card strong {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.sp-metric-sub {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+/* ─── Charts grid ─────────────────────────────────────────────── */
+.sp-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.sp-chart-card {
+  padding: 1.15rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.sp-chart-card h3 {
+  margin: 0 0 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.sp-empty-mini {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+/* ─── Section (experiments list) ──────────────────────────────── */
+.sp-section {
+  margin-top: 1.5rem;
+}
+
+.sp-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.sp-section-title svg {
+  color: var(--text-muted);
+}
+
+.sp-experiments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.sp-experiment-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  transition: border-color 0.15s ease;
+}
+
+.sp-experiment-row:hover {
+  border-color: var(--surface-border-strong);
+}
+
+.sp-experiment-info strong {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text);
+  margin-bottom: 0.15rem;
+}
+
+.sp-experiment-info span {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.sp-experiment-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.sp-stat-good {
+  color: var(--success);
+  font-weight: 800;
+  font-size: 0.88rem;
+}
+
+.sp-tag-public,
+.sp-tag-private {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sp-tag-public {
+  background: rgba(71, 212, 162, 0.15);
+  color: var(--success);
+}
+
+.sp-tag-private {
+  background: rgba(255, 180, 87, 0.15);
+  color: var(--warning);
+}
+
+/* ═══════ COMMUNITY ════════════════════════════════════════════ */
+.sp-composer-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem 1.75rem;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.sp-composer-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.sp-composer-form {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.sp-composer-form h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.sp-composer-form input,
+.sp-composer-form textarea {
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  color: var(--text);
+  font: inherit;
+}
+
+.sp-composer-form input:focus,
+.sp-composer-form textarea:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+
+.sp-composer-tag-wrap {
+  position: relative;
+}
+
+.sp-tag-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.sp-composer-tag-wrap input {
+  padding-left: 2.1rem;
+}
+
+.sp-composer-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.sp-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sp-publish-btn {
+  width: auto !important;
+  padding: 0.55rem 1.1rem !important;
+  font-size: 0.82rem !important;
+}
+
+/* ─── Feed ─────────────────────────────────────────────────────── */
+.sp-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.sp-feed .social-post {
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.sp-feed .social-post:last-child {
+  border-bottom: none;
+}
+
+.sp-empty-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3.5rem 1.5rem;
+  text-align: center;
+}
+
+.sp-empty-card svg {
+  color: var(--text-muted);
+  opacity: 0.35;
+}
+
+.sp-empty-card h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.1rem;
+}
+
+.sp-empty-card p {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 38ch;
+  font-size: 0.88rem;
+}
+
+/* ═══════ VAULT ════════════════════════════════════════════════ */
+.sp-vault-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding: 1.75rem;
+  background: linear-gradient(135deg, var(--surface-strong) 0%, var(--surface) 100%);
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.sp-vault-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 0.35rem;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 900;
+  color: var(--text);
+}
+
+.sp-vault-header h2 svg {
+  color: var(--brand);
+}
+
+.sp-vault-header p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  max-width: 50ch;
+}
+
+.sp-vault-stats-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.sp-vault-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  min-width: 72px;
+}
+
+.sp-vault-stat-num {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: var(--brand);
+  line-height: 1;
+}
+
+.sp-vault-stat-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.sp-vault-search-wrap {
+  position: relative;
+  padding: 0.85rem 1.75rem;
+  border-bottom: 1px solid var(--surface-border);
+}
+
+.sp-vault-search-icon {
+  position: absolute;
+  left: 2.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+}
+
+.sp-vault-search {
+  width: 100%;
+  padding: 0.6rem 0.85rem 0.6rem 2.2rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.88rem;
+}
+
+.sp-vault-search:focus {
+  outline: none;
+  border-color: var(--brand);
+}
+
+.sp-vault-feed .social-post {
+  padding: 1.25rem 1.75rem;
+}
+
+/* ─── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sp-body {
+    padding: 1.25rem;
+  }
+
+  .sp-header-card,
+  .sp-composer-card,
+  .sp-vault-header {
+    padding: 1.15rem;
+  }
+
+  .sp-profile-identity {
+    flex-direction: column;
+  }
+
+  .sp-vault-stats-row {
+    flex-wrap: wrap;
+  }
+
+  .sp-composer-card {
+    flex-direction: column;
+  }
+
+  .sp-composer-avatar {
+    display: none;
+  }
+}

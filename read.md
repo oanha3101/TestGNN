@@ -1,3 +1,4 @@
+
 # GNN Visualization Platform — Software Requirements Specification v1.0
 
 > **Confidential — AI Build Document**

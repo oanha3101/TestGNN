@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react'
-import { Megaphone } from 'lucide-react'
+import { Megaphone, Users, Edit3, Send, Hash, Sparkles } from 'lucide-react'
 import type { FormEvent } from 'react'
 import { PostCard } from './PostCard'
 import type { ModelType, TrainingPoint } from '../../types/gnn'
 import type { SafeUser, TrainingPost, UpdatePostInput } from '../../types/social'
+import './social-pages.css'
 
 type CommunityPanelProps = {
   currentUser: SafeUser | null
@@ -36,18 +37,15 @@ type CommunityPanelProps = {
   onToggleLike: (postId: string) => Promise<void>
 }
 
-const parseTags = (value: string) => {
-  return value
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter((tag) => tag.length > 0)
-}
+const parseTags = (value: string) =>
+  value.split(',').map((tag) => tag.trim()).filter((tag) => tag.length > 0)
 
 const bestStats = (history: TrainingPoint[]) => {
   if (history.length === 0) return { bestAccuracy: 0, bestLoss: 0 }
-  const bestAccuracy = Math.max(...history.map((item) => item.accuracy)) / 100
-  const bestLoss = Math.min(...history.map((item) => item.loss))
-  return { bestAccuracy, bestLoss }
+  return {
+    bestAccuracy: Math.max(...history.map((i) => i.accuracy)) / 100,
+    bestLoss: Math.min(...history.map((i) => i.loss)),
+  }
 }
 
 export function CommunityPanel({
@@ -71,6 +69,7 @@ export function CommunityPanel({
   const [content, setContent] = useState('')
   const [tags, setTags] = useState('training, gnn')
   const [isPublic, setIsPublic] = useState(true)
+  const [isComposerOpen, setIsComposerOpen] = useState(false)
 
   const stats = useMemo(() => bestStats(trainingHistory), [trainingHistory])
 
@@ -96,59 +95,67 @@ export function CommunityPanel({
     setTitle('')
     setSummary('')
     setContent('')
+    setIsComposerOpen(false)
   }
 
+  const fallbackAvatar = currentUser
+    ? `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.displayName)}&background=7c6cff&color=fff&size=64&bold=true`
+    : ''
+  const avatarSrc = currentUser?.avatarUrl || fallbackAvatar
+
+  const publicPosts = posts.filter((p) => p.isPublic)
+
   return (
-    <section className="panel social-panel">
-      <h2 className="panel-title">
-        <Megaphone size={18} />
-        Community Feed
-      </h2>
-      <p className="panel-subtitle">Publish training updates, share results, and discuss experiments with the community.</p>
-
-      {currentUser ? (
-        <form className="composer-grid" onSubmit={handleCreate}>
-          <input
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder="Training post title"
-          />
-          <input
-            value={summary}
-            onChange={(event) => setSummary(event.target.value)}
-            placeholder="Short summary"
-          />
-          <textarea
-            rows={4}
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-            placeholder="Share insights from this training run..."
-          />
-          <input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="tag1, tag2, tag3" />
-          <label className="toggle-row">
-            <input
-              type="checkbox"
-              checked={isPublic}
-              onChange={(event) => setIsPublic(event.target.checked)}
-            />
-            Share publicly with the community
-          </label>
-          <button className="cta" type="submit">
-            Publish training post
+    <section className="sp-root sp-community">
+      {/* Header */}
+      <div className="sp-header-card">
+        <div className="sp-header-text">
+          <h2><Users size={22} className="sp-header-icon" /> Community Feed</h2>
+          <p>Explore published training results and experiments shared by the research community.</p>
+        </div>
+        {currentUser && (
+          <button type="button" className="sp-outline-btn" onClick={() => setIsComposerOpen(!isComposerOpen)}>
+            {isComposerOpen ? 'Close' : <><Edit3 size={14} /> Share Result</>}
           </button>
-        </form>
-      ) : null}
+        )}
+      </div>
 
-      <div className="social-feed">
-        {posts.length === 0 ? (
-          <div className="empty-state">
-            <p>No posts yet.</p>
+      {/* Composer */}
+      {currentUser && isComposerOpen && (
+        <div className="sp-composer-card">
+          <img src={avatarSrc} alt="" className="sp-composer-avatar" />
+          <form className="sp-composer-form" onSubmit={handleCreate}>
+            <h3><Sparkles size={16} className="sp-header-icon" /> Publish training result</h3>
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title for your experiment…" />
+            <input value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="TL;DR summary…" />
+            <textarea rows={3} value={content} onChange={(e) => setContent(e.target.value)} placeholder={`What did you learn from ${model} on ${selectedDataset}?`} />
+            <div className="sp-composer-tag-wrap">
+              <Hash size={14} className="sp-tag-icon" />
+              <input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="tag1, tag2" />
+            </div>
+            <div className="sp-composer-footer">
+              <label className="sp-toggle-label">
+                <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
+                Public to community
+              </label>
+              <button className="cta sp-publish-btn" type="submit"><Send size={14} /> Publish</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Feed */}
+      <div className="sp-feed">
+        {publicPosts.length === 0 ? (
+          <div className="sp-empty-card">
+            <Megaphone size={40} />
+            <h3>No public posts yet</h3>
+            <p>Be the first to share your training results with the community!</p>
           </div>
         ) : (
-          posts.map((post) => {
-            const author = users.find((user) => user.id === post.authorId)
-            const canManage =
-              Boolean(currentUser) && (currentUser?.role === 'admin' || currentUser?.id === post.authorId)
+          publicPosts.map((post) => {
+            const author = users.find((u) => u.id === post.authorId)
+            const canManage = Boolean(currentUser) && (currentUser?.role === 'admin' || currentUser?.id === post.authorId)
             return (
               <PostCard
                 key={post.id}

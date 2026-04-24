@@ -9,6 +9,7 @@ class UserBase(BaseModel):
     email: EmailStr
     display_name: str
     bio: Optional[str] = None
+    avatar_url: Optional[str] = None
     role: str
     status: str
     created_at: datetime
@@ -17,4 +18,5 @@ class UserBase(BaseModel):
 class ProfileUpdateRequest(BaseModel):
     display_name: str
     bio: Optional[str] = None
+    avatar_url: Optional[str] = None
 

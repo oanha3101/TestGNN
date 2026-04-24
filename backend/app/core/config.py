@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     bootstrap_admin_password: str = "admin123"
     bootstrap_admin_display_name: str = "Admin GNN"
 
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:5174,http://127.0.0.1:5174,http://localhost:5175,http://127.0.0.1:5175"
 
     # Rate limiting. Set rate_limit_enabled=false to disable globally (useful
     # for tests). Values follow slowapi's string format: "<count>/<window>".

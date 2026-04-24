@@ -22,6 +22,7 @@ type ApiUser = {
   email: string
   display_name: string
   bio: string | null
+  avatar_url: string | null
   role: UserRole
   status: UserStatus
   created_at: string
@@ -78,6 +79,7 @@ const toSafeUser = (user: ApiUser): SafeUser => ({
   email: user.email,
   displayName: user.display_name,
   bio: user.bio ?? '',
+  avatarUrl: user.avatar_url ?? null,
   role: user.role,
   status: user.status,
   createdAt: new Date(user.created_at).getTime(),
@@ -366,6 +368,20 @@ export const updateProfile = async (input: UpdateProfileInput): Promise<SafeUser
     const response = await api.patch<ApiUser>('/profile', {
       display_name: input.displayName,
       bio: input.bio,
+      avatar_url: input.avatarUrl ?? undefined,
+    })
+    return toSafeUser(response.data)
+  } catch (error) {
+    throw new Error(extractErrorMessage(error))
+  }
+}
+
+export const uploadAvatar = async (file: File): Promise<SafeUser> => {
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post<ApiUser>('/profile/avatar', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     })
     return toSafeUser(response.data)
   } catch (error) {

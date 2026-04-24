@@ -49,6 +49,15 @@ app = FastAPI(
 )
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "msg": str(exc)},
+    )
+
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.warning("Validation error on %s %s: %s", request.method, request.url.path, exc.errors())
@@ -57,9 +66,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 install_rate_limit_handlers(app)
 
+# CORS configuration
+if settings.app_env == "development":
+    allow_origins = ["*"]
+else:
+    allow_origins = settings.cors_origin_list
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

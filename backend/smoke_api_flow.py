@@ -57,7 +57,12 @@ def main():
     register_status, register_data = call_api(
         "POST",
         "/auth/register",
-        {"display_name": "Smoke User", "email": email, "password": password},
+        {
+            "display_name": "Smoke User",
+            "email": email,
+            "password": password,
+            "accept_terms": True,
+        },
     )
     if register_status != 201:
         raise RuntimeError(f"register failed: {register_status}, payload={register_data}")
@@ -132,7 +137,7 @@ def main():
 
     posts_status, posts_data = call_api("GET", "/posts", token=token)
     assert_status(posts_status, 200, "list posts")
-    if not any(item["id"] == post_id for item in posts_data):
+    if not any(item["id"] == post_id for item in posts_data["items"]):
         raise RuntimeError("newly created post was not returned")
 
     print(

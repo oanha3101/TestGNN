@@ -13,6 +13,7 @@ import {
   toggleVaultPost,
   updateProfile,
   updateTrainingPost,
+  uploadAvatar as uploadAvatarApi,
 } from '../api/socialApiService'
 import type {
   AdminOverview,
@@ -32,7 +33,7 @@ type AuthRegisterInput = {
   password: string
   acceptTerms: boolean
 }
-type UpdateProfileInput = { displayName: string; bio: string }
+type UpdateProfileInput = { displayName: string; bio: string; avatarUrl?: string | null }
 
 export function useSocialPlatform() {
   const [users, setUsers] = useState<SafeUser[]>([])
@@ -177,6 +178,16 @@ export function useSocialPlatform() {
     [refresh, withAction],
   )
 
+  const uploadAvatarAction = useCallback(
+    async (file: File) => {
+      await withAction(async () => {
+        await uploadAvatarApi(file)
+        await refresh()
+      })
+    },
+    [refresh, withAction],
+  )
+
   const setUserRole = useCallback(
     async (userId: string, role: UserRole) => {
       await withAction(async () => {
@@ -244,6 +255,7 @@ export function useSocialPlatform() {
     toggleVault,
     toggleLike,
     saveProfile,
+    uploadAvatar: uploadAvatarAction,
     setUserRole,
     setUserStatus,
     removePostAsAdmin,

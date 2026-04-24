@@ -10,11 +10,13 @@ from app.schemas.user import UserBase
 def to_user_schema(user: User) -> UserBase:
     display_name = user.profile.display_name if user.profile else user.email.split("@")[0]
     bio = user.profile.bio if user.profile else None
+    avatar_url = user.profile.avatar_url if user.profile else None
     return UserBase(
         id=user.id,
         email=user.email,
         display_name=display_name,
         bio=bio,
+        avatar_url=avatar_url,
         role=user.role,
         status=user.status,
         created_at=user.created_at,

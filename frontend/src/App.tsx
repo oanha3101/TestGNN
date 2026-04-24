@@ -190,6 +190,7 @@ function App() {
     toggleVault,
     toggleLike,
     saveProfile,
+    uploadAvatar,
     setUserRole,
     setUserStatus,
     removePostAsAdmin,
@@ -734,7 +735,7 @@ function App() {
     if (activeView === 'profile') {
       return (
         <main className="single-layout">
-          <ProfilePanel currentUser={currentUser} myPosts={myPosts} onSaveProfile={saveProfile} />
+          <ProfilePanel currentUser={currentUser} myPosts={myPosts} onSaveProfile={saveProfile} onUploadAvatar={uploadAvatar} />
         </main>
       )
     }

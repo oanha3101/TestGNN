@@ -18,6 +18,7 @@ export type UserAccount = {
   password: string
   displayName: string
   bio: string
+  avatarUrl: string | null
   role: UserRole
   status: UserStatus
   createdAt: number
@@ -96,4 +97,5 @@ export type UpdatePostInput = {
 export type UpdateProfileInput = {
   displayName: string
   bio: string
+  avatarUrl?: string | null
 }
