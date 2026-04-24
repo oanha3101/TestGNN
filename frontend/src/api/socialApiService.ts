@@ -214,19 +214,55 @@ export const registerUser = async ({
   email,
   password,
   displayName,
+  acceptTerms,
 }: {
   email: string
   password: string
   displayName: string
+  acceptTerms: boolean
 }): Promise<AuthResult> => {
   try {
     const response = await api.post<ApiAuthResponse>('/auth/register', {
       email,
       password,
       display_name: displayName,
+      accept_terms: acceptTerms,
     })
     setToken(response.data.access_token)
     return { user: toSafeUser(response.data.user) }
+  } catch (error) {
+    throw new Error(extractErrorMessage(error))
+  }
+}
+
+export type ForgotPasswordResponse = {
+  message: string
+  delivery: 'email' | 'log-only' | 'none'
+  reset_url: string | null
+}
+
+export const requestPasswordReset = async (email: string): Promise<ForgotPasswordResponse> => {
+  try {
+    const response = await api.post<ForgotPasswordResponse>('/auth/forgot-password', { email })
+    return response.data
+  } catch (error) {
+    throw new Error(extractErrorMessage(error))
+  }
+}
+
+export const submitPasswordReset = async ({
+  token,
+  password,
+}: {
+  token: string
+  password: string
+}): Promise<{ message: string }> => {
+  try {
+    const response = await api.post<{ message: string }>('/auth/reset-password', {
+      token,
+      password,
+    })
+    return response.data
   } catch (error) {
     throw new Error(extractErrorMessage(error))
   }

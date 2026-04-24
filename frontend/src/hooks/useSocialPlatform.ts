@@ -26,7 +26,12 @@ import type {
 } from '../types/social'
 
 type AuthLoginInput = { email: string; password: string }
-type AuthRegisterInput = { displayName: string; email: string; password: string }
+type AuthRegisterInput = {
+  displayName: string
+  email: string
+  password: string
+  acceptTerms: boolean
+}
 type UpdateProfileInput = { displayName: string; bio: string }
 
 export function useSocialPlatform() {

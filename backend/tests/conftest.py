@@ -91,7 +91,12 @@ def _register_user(client: TestClient, email: str, password: str = "Testing12345
     """Register + login; returns a bearer token string."""
     resp = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": password, "display_name": email.split("@")[0]},
+        json={
+            "email": email,
+            "password": password,
+            "display_name": email.split("@")[0],
+            "accept_terms": True,
+        },
     )
     assert resp.status_code in (200, 201), resp.text
     login = client.post(

@@ -777,3 +777,64 @@
     width: 100%;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Workspace surface theming (dark + light)
+   Let UniverseBackground canvas show through the admin shell, and
+   dark-theme the lab overview / workspace canvas toolbar / phase
+   steps / timeline controls / checkpoint list.
+═══════════════════════════════════════════════════════════════ */
+[data-theme='dark'] .admin-shell {
+  background:
+    radial-gradient(circle at top left, var(--bg-glow-a), transparent 38%),
+    radial-gradient(circle at bottom right, var(--bg-glow-b), transparent 42%),
+    linear-gradient(180deg, rgba(5, 2, 24, 0.55) 0%, rgba(11, 7, 32, 0.78) 100%);
+}
+
+[data-theme='light'] .admin-shell {
+  background:
+    radial-gradient(circle at top left, var(--bg-glow-a), transparent 38%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(239, 243, 252, 0.9) 100%);
+}
+
+[data-theme='dark'] .lab-overview-card,
+[data-theme='dark'] .phase-step,
+[data-theme='dark'] .timeline-actions button,
+[data-theme='dark'] .checkpoint-item {
+  background: var(--surface-strong);
+  border-color: var(--surface-border);
+  color: var(--text);
+  box-shadow: none;
+}
+
+[data-theme='dark'] .workspace-canvas-card .canvas-toolbar button {
+  background: var(--surface-soft);
+  border-color: var(--surface-border);
+  color: var(--text-muted);
+}
+
+[data-theme='dark'] .workspace-canvas-card .canvas-toolbar button:hover {
+  border-color: var(--surface-border-strong);
+  color: var(--text);
+}
+
+[data-theme='dark'] .phase-step.is-active {
+  background: linear-gradient(180deg, var(--brand-soft) 0%, var(--surface-strong) 100%);
+  border-color: var(--brand);
+}
+
+[data-theme='dark'] .timeline-card-refined .timeline-head p,
+[data-theme='dark'] .phase-step p,
+[data-theme='dark'] .timeline-speed,
+[data-theme='dark'] .checkpoint-item p {
+  color: var(--text-muted);
+}
+
+[data-theme='dark'] .phase-step strong,
+[data-theme='dark'] .checkpoint-item strong {
+  color: var(--text);
+}
+
+[data-theme='dark'] .phase-step-index {
+  color: var(--brand);
+}

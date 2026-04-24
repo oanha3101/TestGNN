@@ -6,7 +6,12 @@ type AuthPanelProps = {
   isBusy: boolean
   error: string | null
   onLogin: (input: { email: string; password: string }) => Promise<void>
-  onRegister: (input: { displayName: string; email: string; password: string }) => Promise<void>
+  onRegister: (input: {
+    displayName: string
+    email: string
+    password: string
+    acceptTerms: boolean
+  }) => Promise<void>
 }
 
 export function AuthPanel({ isBusy, error, onLogin, onRegister }: AuthPanelProps) {
@@ -14,6 +19,7 @@ export function AuthPanel({ isBusy, error, onLogin, onRegister }: AuthPanelProps
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [acceptTerms, setAcceptTerms] = useState(false)
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -21,8 +27,10 @@ export function AuthPanel({ isBusy, error, onLogin, onRegister }: AuthPanelProps
       await onLogin({ email, password })
       return
     }
-    await onRegister({ displayName, email, password })
+    await onRegister({ displayName, email, password, acceptTerms })
   }
+
+  const registerBlocked = mode === 'register' && !acceptTerms
 
   return (
     <section className="panel auth-panel">
@@ -83,7 +91,29 @@ export function AuthPanel({ isBusy, error, onLogin, onRegister }: AuthPanelProps
           />
         </label>
 
-        <button className="cta" type="submit" disabled={isBusy}>
+        {mode === 'register' ? (
+          <label className="auth-terms-row">
+            <input
+              type="checkbox"
+              checked={acceptTerms}
+              onChange={(e) => setAcceptTerms(e.target.checked)}
+              disabled={isBusy}
+            />
+            <span>
+              I agree to the{' '}
+              <a className="auth-terms-link" href="/terms" target="_blank" rel="noreferrer">
+                Terms of Service
+              </a>{' '}
+              and{' '}
+              <a className="auth-terms-link" href="/privacy" target="_blank" rel="noreferrer">
+                Privacy Policy
+              </a>
+              .
+            </span>
+          </label>
+        ) : null}
+
+        <button className="cta" type="submit" disabled={isBusy || registerBlocked}>
           {mode === 'login' ? 'Sign In' : 'Create Account'}
         </button>
       </form>

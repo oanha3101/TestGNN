@@ -2331,3 +2331,380 @@ select {
     grid-template-columns: 1fr;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   Dark-mode surface overrides.
+   The large Miro-inspired block above hardcodes light surfaces
+   (white cards, pastel borders, slate text). When data-theme='dark'
+   is active, remap those surfaces to dark tokens so the entire user
+   workspace (topbar, nav, panels, cards, inputs, Community, Vault,
+   Profile) actually goes dark instead of staying half-light.
+═══════════════════════════════════════════════════════════════ */
+[data-theme='dark'] .topbar {
+  background: var(--surface);
+  border-color: var(--surface-border);
+  box-shadow: var(--surface-shadow);
+}
+
+[data-theme='dark'] .topbar-nav-group {
+  background: var(--surface-soft);
+  border-color: var(--surface-border);
+}
+
+[data-theme='dark'] .topbar-nav-group.is-admin {
+  background: rgba(255, 180, 87, 0.08);
+  border-color: rgba(255, 180, 87, 0.22);
+}
+
+[data-theme='dark'] .topbar-nav-label {
+  color: var(--text-muted);
+}
+
+[data-theme='dark'] .topbar-nav-button,
+[data-theme='dark'] .chip,
+[data-theme='dark'] .toggle,
+[data-theme='dark'] .cta {
+  background: var(--surface-soft);
+  border-color: var(--surface-border);
+  color: var(--text);
+  box-shadow: none;
+}
+
+[data-theme='dark'] .topbar-nav-button {
+  color: var(--text-muted);
+}
+
+[data-theme='dark'] .topbar-nav-button:hover,
+[data-theme='dark'] .chip:hover,
+[data-theme='dark'] .toggle:hover,
+[data-theme='dark'] .cta:hover {
+  border-color: var(--surface-border-strong);
+}
+
+[data-theme='dark'] .topbar-nav-button.is-active,
+[data-theme='dark'] .chip-active,
+[data-theme='dark'] .toggle-active,
+[data-theme='dark'] .cta,
+[data-theme='dark'] .topbar-login-button {
+  background: var(--accent-gradient);
+  border-color: var(--brand-strong);
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(124, 108, 255, 0.24);
+}
+
+[data-theme='dark'] .topbar-chip,
+[data-theme='dark'] .status-pill,
+[data-theme='dark'] .epoch-pill,
+[data-theme='dark'] .chip-mini {
+  background: var(--surface-soft);
+  border-color: var(--surface-border);
+  color: var(--text);
+}
+
+[data-theme='dark'] .panel,
+[data-theme='dark'] .canvas-card,
+[data-theme='dark'] .timeline-card,
+[data-theme='dark'] .dashboard-card,
+[data-theme='dark'] .embedding-card {
+  background: var(--surface);
+  border-color: var(--surface-border);
+  box-shadow: var(--surface-shadow);
+}
+
+[data-theme='dark'] .metric-card,
+[data-theme='dark'] .chart-card,
+[data-theme='dark'] .admin-card,
+[data-theme='dark'] .admin-chart-card,
+[data-theme='dark'] .comparison-card,
+[data-theme='dark'] .social-post,
+[data-theme='dark'] .empty-state {
+  background: var(--surface-strong);
+  border-color: var(--surface-border);
+  box-shadow: var(--surface-shadow);
+  color: var(--text);
+}
+
+[data-theme='dark'] .metric-label,
+[data-theme='dark'] .metric-delta.muted,
+[data-theme='dark'] .chart-card-head span,
+[data-theme='dark'] .admin-card-head span,
+[data-theme='dark'] .admin-chart-card > header span,
+[data-theme='dark'] .comparison-card header span,
+[data-theme='dark'] .social-post-head p,
+[data-theme='dark'] .admin-row-copy p,
+[data-theme='dark'] .empty-state p,
+[data-theme='dark'] .attention-legend {
+  color: var(--text-muted);
+}
+
+[data-theme='dark'] .metric-delta {
+  color: var(--text);
+}
+
+[data-theme='dark'] .post-summary {
+  color: var(--text);
+}
+
+[data-theme='dark'] .post-training-meta span,
+[data-theme='dark'] .chip-mini {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+[data-theme='dark'] .panel input,
+[data-theme='dark'] .panel textarea,
+[data-theme='dark'] .panel select {
+  background: var(--surface-soft);
+  border-color: var(--surface-border);
+  color: var(--text);
+  box-shadow: none;
+}
+
+[data-theme='dark'] .panel input::placeholder,
+[data-theme='dark'] .panel textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+
+[data-theme='dark'] .panel input:focus,
+[data-theme='dark'] .panel textarea:focus,
+[data-theme='dark'] .panel select:focus {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-soft);
+}
+
+[data-theme='dark'] .agreement-table,
+[data-theme='dark'] .attention-item {
+  background: var(--surface-strong);
+  border-color: var(--surface-border);
+}
+
+[data-theme='dark'] .agreement-row {
+  border-top-color: var(--surface-border);
+}
+
+[data-theme='dark'] .agreement-header {
+  background: var(--surface-soft);
+  color: var(--text-muted);
+}
+
+[data-theme='dark'] .admin-tabs {
+  background: var(--surface-soft);
+  border-color: var(--surface-border);
+}
+
+[data-theme='dark'] .admin-row {
+  border-top-color: var(--surface-border);
+}
+
+[data-theme='dark'] .admin-pill {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+[data-theme='dark'] .role-badge-tag,
+[data-theme='dark'] .dashboard-badge {
+  background: var(--brand-soft);
+  color: var(--accent);
+}
+
+[data-theme='dark'] .empty-state {
+  background: linear-gradient(180deg, var(--surface-soft), var(--surface));
+}
+
+[data-theme='dark'] .comparison-card svg {
+  background:
+    radial-gradient(circle at top left, var(--brand-soft), transparent 35%),
+    linear-gradient(180deg, var(--surface-strong), var(--surface));
+}
+
+[data-theme='dark'] .attention-meter {
+  background: var(--surface-soft);
+}
+
+[data-theme='dark'] .status-dot {
+  background: var(--text-muted);
+}
+
+/* The Miro light theme leans on two tinted glow blobs; under dark
+   mode they clash with the cosmic palette — fade them out. */
+[data-theme='dark'] .bg-glow-a,
+[data-theme='dark'] .bg-glow-b {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Auth / Forgot-password / Terms / Privacy / Reset password
+   New UI bits introduced alongside the forgot-password flow.
+═══════════════════════════════════════════════════════════════ */
+
+/* Inline link under the password field that flips Auth → forgot mode. */
+.auth-forgot-link {
+  margin-top: 0.6rem;
+  margin-left: auto;
+  display: inline-flex;
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 0.78rem;
+  color: var(--brand);
+  opacity: 0.92;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth-forgot-link:hover { opacity: 1; }
+
+/* Terms checkbox row on the register form. */
+.auth-terms-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin-top: 0.25rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+.auth-terms-row input[type='checkbox'] {
+  margin-top: 0.15rem;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--brand);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.auth-terms-row span { flex: 1; }
+.auth-terms-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--brand);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.auth-terms-link:hover { opacity: 0.85; }
+
+/* Informational banner (e.g. "reset email sent"). Distinct from the
+   error banner so success paths read as positive. */
+.auth-info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid rgba(0, 180, 115, 0.35);
+  border-radius: 12px;
+  background: rgba(0, 180, 115, 0.08);
+  color: var(--text);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.auth-info-box svg {
+  color: #00b473;
+  flex-shrink: 0;
+  margin-top: 0.1rem;
+}
+.auth-info-box strong { font-weight: 600; }
+.auth-info-sub {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  opacity: 0.8;
+}
+.auth-info-sub a {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* Ghost / secondary button used for "Back to sign in" under the
+   forgot-password form. */
+.auth-secondary-btn {
+  width: 100%;
+  padding: 0.7rem;
+  background: var(--surface-soft);
+  border: 1px solid var(--surface-border);
+  border-radius: 11px;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease;
+  margin-top: -0.1rem;
+}
+.auth-secondary-btn:hover {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+}
+
+/* Legal pages — /terms and /privacy. Share layout primitives with
+   AuthPage (landing-glow, brand-mark, auth-back-btn). */
+.legal-page {
+  position: relative;
+  min-height: 100vh;
+  padding: 4rem 1.5rem 5rem;
+  display: flex;
+  justify-content: center;
+}
+.legal-container {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 780px;
+  padding: 2.25rem 2.25rem 2.5rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--surface-shadow);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+.legal-header h1 {
+  margin: 1.2rem 0 0.35rem;
+  font-size: 1.9rem;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.legal-meta {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.legal-intro {
+  margin: 1rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.94rem;
+  line-height: 1.7;
+}
+.legal-body {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.legal-section h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.04rem;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.legal-section p {
+  margin: 0 0 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+.legal-section p:last-child { margin-bottom: 0; }
+
+@media (max-width: 640px) {
+  .legal-page { padding: 3rem 1rem 4rem; }
+  .legal-container { padding: 1.6rem 1.4rem 2rem; }
+  .legal-header h1 { font-size: 1.5rem; }
+}

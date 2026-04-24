@@ -37,6 +37,8 @@ import { messagePassingPhases } from './data/mockGnn'
 import { useSocialPlatform } from './hooks/useSocialPlatform'
 import { AuthPage } from './pages/AuthPage'
 import { LandingPage } from './pages/LandingPage'
+import { LegalPage } from './pages/LegalPage'
+import { ResetPasswordPage } from './pages/ResetPasswordPage'
 import { useGraphStore, useModelStore } from './store/useStore'
 import type { AppView } from './types/app'
 import type {
@@ -81,8 +83,28 @@ const repredictNodes = (nodes: GraphNode[]) => {
 const makeRandomAttention = () =>
   [0, 1, 2, 3].map(() => Number((0.12 + Math.random() * 0.8).toFixed(3)))
 
+type AppScreen = 'landing' | 'auth' | 'reset' | 'terms' | 'privacy' | 'app'
+
+// Detect deep-link screens from the URL without bringing in react-router.
+// Supports `/reset-password?token=…`, `/terms`, `/privacy`.
+function readInitialScreen(): { screen: AppScreen; resetToken: string | null } {
+  if (typeof window === 'undefined') {
+    return { screen: 'landing', resetToken: null }
+  }
+  const path = window.location.pathname
+  if (path.startsWith('/reset-password')) {
+    const token = new URLSearchParams(window.location.search).get('token')
+    return { screen: 'reset', resetToken: token }
+  }
+  if (path.startsWith('/terms')) return { screen: 'terms', resetToken: null }
+  if (path.startsWith('/privacy')) return { screen: 'privacy', resetToken: null }
+  return { screen: 'landing', resetToken: null }
+}
+
 function App() {
-  const [appScreen, setAppScreen] = useState<'landing' | 'auth' | 'app'>('landing')
+  const initialRoute = readInitialScreen()
+  const [appScreen, setAppScreen] = useState<AppScreen>(initialRoute.screen)
+  const [resetToken] = useState<string | null>(initialRoute.resetToken)
   const [model, setModel] = useState<ModelType>('GAT')
   const [messageStep, setMessageStep] = useState(0)
   const [autoPlay, setAutoPlay] = useState(true)
@@ -174,7 +196,28 @@ function App() {
   } = useSocialPlatform()
   const trainingRunsQuery = useTrainingRunsQuery(Boolean(currentUser))
   const trainingRuns = trainingRunsQuery.data ?? []
-  const activeScreen = currentUser ? 'app' : appScreen
+  // /terms, /privacy and /reset-password are accessible regardless of auth
+  // state. Otherwise, authenticated users go straight to the app shell.
+  const publicRouteScreens: AppScreen[] = ['terms', 'privacy', 'reset']
+  const activeScreen: AppScreen =
+    publicRouteScreens.includes(appScreen)
+      ? appScreen
+      : currentUser
+        ? 'app'
+        : appScreen
+  // When user navigates away from a deep-link, reset the URL so
+  // refresh does not restore the legal/reset page.
+  const navigateToScreen = (next: AppScreen) => {
+    setAppScreen(next)
+    if (typeof window !== 'undefined' && window.history?.replaceState) {
+      const path = next === 'terms' ? '/terms' : next === 'privacy' ? '/privacy' : '/'
+      try {
+        window.history.replaceState({}, '', path)
+      } catch {
+        // no-op on environments without history
+      }
+    }
+  }
 
   const appendEvent = useCallback((message: string, level: StreamEvent['level'] = 'info') => {
     setStreamEvents((prev) => [toEvent(message, level), ...prev].slice(0, 18))
@@ -718,6 +761,25 @@ function App() {
     )
   }
 
+  if (activeScreen === 'terms' || activeScreen === 'privacy') {
+    return (
+      <LegalPage
+        kind={activeScreen}
+        onBack={() => navigateToScreen(currentUser ? 'app' : 'auth')}
+      />
+    )
+  }
+
+  if (activeScreen === 'reset') {
+    return (
+      <ResetPasswordPage
+        token={resetToken ?? ''}
+        onBack={() => navigateToScreen('landing')}
+        onSignIn={() => navigateToScreen('auth')}
+      />
+    )
+  }
+
   if (activeScreen === 'landing') {
     return <LandingPage onGetStarted={() => setAppScreen('auth')} />
   }
@@ -734,6 +796,8 @@ function App() {
           await register(input)
         }}
         onBack={() => setAppScreen('landing')}
+        onOpenTerms={() => navigateToScreen('terms')}
+        onOpenPrivacy={() => navigateToScreen('privacy')}
       />
     )
   }
