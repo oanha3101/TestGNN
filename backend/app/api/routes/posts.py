@@ -1,16 +1,15 @@
-from typing import List
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user, get_db
 from app.db.models import User
+from app.schemas.pagination import DEFAULT_LIMIT, MAX_LIMIT, Page
 from app.schemas.post import PostCreateRequest, PostItem, PostUpdateRequest
 from app.services.post_service import (
     create_post,
     delete_post,
     get_post,
-    list_posts,
+    list_posts_page,
     to_post_schema,
     toggle_bookmark,
     toggle_like,
@@ -20,13 +19,20 @@ from app.services.post_service import (
 router = APIRouter()
 
 
-@router.get("", response_model=List[PostItem])
+@router.get("", response_model=Page[PostItem])
 def get_posts(
+    limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> List[PostItem]:
-    posts = list_posts(db, current_user)
-    return [to_post_schema(post, current_user) for post in posts]
+) -> Page[PostItem]:
+    posts, total = list_posts_page(db, current_user, limit=limit, offset=offset)
+    return Page[PostItem](
+        items=[to_post_schema(post, current_user) for post in posts],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.post("", response_model=PostItem, status_code=status.HTTP_201_CREATED)

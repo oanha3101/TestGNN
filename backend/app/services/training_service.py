@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, selectinload
 
 from app.db.models import AuditLog, TrainingMetric, TrainingRun, User
 from app.schemas.training import (
@@ -91,19 +91,55 @@ def get_training_run(db: Session, run_id: int) -> Optional[TrainingRun]:
     return db.scalar(
         select(TrainingRun)
         .where(TrainingRun.id == run_id)
-        .options(joinedload(TrainingRun.metrics))
+        .options(selectinload(TrainingRun.metrics))
     )
 
 
-def list_training_runs(db: Session, current_user: User) -> List[TrainingRun]:
-    query = (
-        select(TrainingRun)
-        .options(joinedload(TrainingRun.metrics))
-        .order_by(TrainingRun.created_at.desc())
-    )
+def _training_runs_base_query(current_user: User):
+    query = select(TrainingRun)
     if current_user.role != "admin":
         query = query.where(TrainingRun.user_id == current_user.id)
+    return query
+
+
+def count_training_runs(db: Session, current_user: User) -> int:
+    base = _training_runs_base_query(current_user)
+    return db.scalar(select(func.count()).select_from(base.subquery())) or 0
+
+
+def list_training_runs(
+    db: Session,
+    current_user: User,
+    *,
+    limit: Optional[int] = None,
+    offset: int = 0,
+) -> List[TrainingRun]:
+    # Runs can have hundreds of metric rows; joinedload here would inflate
+    # the result set by metrics-per-run. selectinload keeps it to one extra
+    # bounded query for the metric collection.
+    query = (
+        _training_runs_base_query(current_user)
+        .options(selectinload(TrainingRun.metrics))
+        .order_by(TrainingRun.created_at.desc())
+    )
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
     return list(db.scalars(query).unique())
+
+
+def list_training_runs_page(
+    db: Session,
+    current_user: User,
+    *,
+    limit: int,
+    offset: int,
+) -> Tuple[List[TrainingRun], int]:
+    return (
+        list_training_runs(db, current_user, limit=limit, offset=offset),
+        count_training_runs(db, current_user),
+    )
 
 
 def create_training_run(

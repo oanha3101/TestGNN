@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional, Tuple
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
@@ -28,11 +28,32 @@ def get_overview(db: Session) -> AdminOverview:
     )
 
 
-def list_users(db: Session) -> List[UserBase]:
-    users = list(
-        db.scalars(select(User).options(joinedload(User.profile)).order_by(User.created_at.desc())).unique()
-    )
+def list_users(
+    db: Session,
+    *,
+    limit: Optional[int] = None,
+    offset: int = 0,
+) -> List[UserBase]:
+    query = select(User).options(joinedload(User.profile)).order_by(User.created_at.desc())
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
+    users = list(db.scalars(query).unique())
     return [to_user_schema(user) for user in users]
+
+
+def count_users(db: Session) -> int:
+    return db.scalar(select(func.count(User.id))) or 0
+
+
+def list_users_page(
+    db: Session,
+    *,
+    limit: int,
+    offset: int,
+) -> Tuple[List[UserBase], int]:
+    return list_users(db, limit=limit, offset=offset), count_users(db)
 
 
 def set_user_role(db: Session, admin_user: User, user_id: int, role: str) -> User:

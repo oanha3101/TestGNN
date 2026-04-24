@@ -153,6 +153,8 @@ export const registerUser = async ({
   email: string
   password: string
   displayName: string
+  // Mock service doesn't enforce the checkbox; real backend does.
+  acceptTerms?: boolean
 }): Promise<AuthResult> => {
   await delay(180)
   const state = readState()

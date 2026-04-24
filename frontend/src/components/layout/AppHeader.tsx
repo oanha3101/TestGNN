@@ -1,12 +1,10 @@
+import { Moon, Sun } from 'lucide-react'
 import type { AppView } from '../../types/app'
 import type { SafeUser } from '../../types/social'
+import { useTheme } from '../../hooks/useTheme'
 
 type AppHeaderProps = {
-  isTraining: boolean
   selectedDataset: string
-  currentEpoch: number
-  nodeCount: number
-  edgeCount: number
   activeView: AppView
   currentUser: SafeUser | null
   onViewChange: (view: AppView) => void
@@ -15,11 +13,7 @@ type AppHeaderProps = {
 }
 
 export function AppHeader({
-  isTraining,
   selectedDataset,
-  currentEpoch,
-  nodeCount,
-  edgeCount,
   activeView,
   currentUser,
   onViewChange,
@@ -33,14 +27,18 @@ export function AppHeader({
     { id: 'profile', label: 'Profile' },
   ]
 
+  const { mode, toggle: toggleTheme } = useTheme()
+
   return (
-    <header className="topbar mb-6">
+    <header className="topbar">
       <div className="topbar-main">
         <div className="brand">
           <div className="brand-mark">G</div>
           <div>
             <h1 className="brand-title">GNN Neural Platform</h1>
-            <p className="topbar-dataset">{selectedDataset}</p>
+            <p className="topbar-dataset">
+              {activeView === 'lab' ? `Lab workspace - ${selectedDataset}` : `Workspace - ${activeView}`}
+            </p>
           </div>
         </div>
 
@@ -79,17 +77,16 @@ export function AppHeader({
       </div>
 
       <div className="topbar-right">
-        <div className="topbar-meta">
-          <div className="topbar-chip">{nodeCount} nodes</div>
-          <div className="topbar-chip">{edgeCount} edges</div>
-          <div className="status-pill">
-            <span className={`${isTraining ? 'status-dot is-live animate-pulse' : 'status-dot'}`} />
-            <span>{isTraining ? 'Training live' : 'Ready'}</span>
-          </div>
-          <div className="epoch-pill">Epoch {currentEpoch}/200</div>
-        </div>
-
         <div className="topbar-auth">
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {mode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
           {currentUser ? (
             <>
               <span className="topbar-chip role-badge">

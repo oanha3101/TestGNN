@@ -1,7 +1,7 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
-from sqlalchemy import and_, or_, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.db.models import AuditLog, Post, PostBookmark, PostLike, TrainingRun, User
 from app.schemas.post import (
@@ -93,31 +93,70 @@ def to_post_schema(
     )
 
 
-def list_posts(db: Session, current_user: Optional[User]) -> List[Post]:
-    query = (
-        select(Post)
-        .options(
-            joinedload(Post.author).joinedload(User.profile),
-            joinedload(Post.likes),
-            joinedload(Post.bookmarks),
-        )
-        .order_by(Post.updated_at.desc())
-    )
+def _posts_base_query(current_user: Optional[User]):
+    """Build the filtered (but unordered / unpaginated) Post select.
 
+    Centralises the visibility rules so ``list_posts`` and
+    ``count_posts`` stay in sync — mismatched predicates between the
+    two would produce incorrect ``total`` values in paginated responses.
+    """
+    query = select(Post)
     if current_user and current_user.role == "admin":
-        return list(db.scalars(query).unique())
-
+        return query
     if current_user:
-        query = query.where(
+        return query.where(
             or_(
                 Post.author_id == current_user.id,
                 and_(Post.visibility == "public", Post.moderation_status != "hidden"),
             )
         )
-    else:
-        query = query.where(Post.visibility == "public", Post.moderation_status != "hidden")
+    return query.where(Post.visibility == "public", Post.moderation_status != "hidden")
 
+
+def count_posts(db: Session, current_user: Optional[User]) -> int:
+    base = _posts_base_query(current_user)
+    return db.scalar(select(func.count()).select_from(base.subquery())) or 0
+
+
+def list_posts(
+    db: Session,
+    current_user: Optional[User],
+    *,
+    limit: Optional[int] = None,
+    offset: int = 0,
+) -> List[Post]:
+    # joinedload is fine for the single-valued author->profile chain, but
+    # ``likes`` and ``bookmarks`` are collections — joinedload there would
+    # cartesian-explode each post row by (likes * bookmarks). selectinload
+    # runs a bounded second query per relationship (O(1) extra queries, not
+    # O(N)), which is the right pattern here.
+    query = (
+        _posts_base_query(current_user)
+        .options(
+            joinedload(Post.author).joinedload(User.profile),
+            selectinload(Post.likes),
+            selectinload(Post.bookmarks),
+        )
+        .order_by(Post.updated_at.desc())
+    )
+    if offset:
+        query = query.offset(offset)
+    if limit is not None:
+        query = query.limit(limit)
     return list(db.scalars(query).unique())
+
+
+def list_posts_page(
+    db: Session,
+    current_user: Optional[User],
+    *,
+    limit: int,
+    offset: int,
+) -> Tuple[List[Post], int]:
+    return (
+        list_posts(db, current_user, limit=limit, offset=offset),
+        count_posts(db, current_user),
+    )
 
 
 def create_post(db: Session, current_user: User, payload: PostCreateRequest) -> Post:
@@ -157,8 +196,8 @@ def get_post(db: Session, post_id: int) -> Optional[Post]:
         .where(Post.id == post_id)
         .options(
             joinedload(Post.author).joinedload(User.profile),
-            joinedload(Post.likes),
-            joinedload(Post.bookmarks),
+            selectinload(Post.likes),
+            selectinload(Post.bookmarks),
         )
     )
 
@@ -248,6 +287,12 @@ def toggle_bookmark(db: Session, current_user: User, post_id: int) -> None:
 
 
 def list_bookmarks(db: Session, current_user: User) -> List[BookmarkItem]:
+    # SQLAlchemy rejects mixing joinedload + selectinload for the same
+    # ``PostBookmark.post`` edge ("Loader strategies ... conflict"). The
+    # bookmark list is user-scoped and typically small, so we just
+    # joinedload the post + author chain and let the collections
+    # lazy-load inside ``to_post_schema`` — the extra queries per
+    # bookmark are negligible at this cardinality.
     bookmarks = list(
         db.scalars(
             select(PostBookmark)
@@ -256,8 +301,6 @@ def list_bookmarks(db: Session, current_user: User) -> List[BookmarkItem]:
                 joinedload(PostBookmark.post)
                 .joinedload(Post.author)
                 .joinedload(User.profile),
-                joinedload(PostBookmark.post).joinedload(Post.likes),
-                joinedload(PostBookmark.post).joinedload(Post.bookmarks),
             )
             .order_by(PostBookmark.created_at.desc())
         ).unique()
