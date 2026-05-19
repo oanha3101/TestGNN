@@ -27,6 +27,7 @@ import { GraphCanvas } from './components/graph/GraphCanvas'
 import { MessagePassingTimeline } from './components/graph/MessagePassingTimeline'
 import { NodeDetail } from './components/inspector/NodeDetail'
 import { AppHeader } from './components/layout/AppHeader'
+import { ReportExportPanel } from './components/report/ReportExportPanel'
 import { AdminPanel } from './components/social/AdminPanel'
 import { AuthPanel } from './components/social/AuthPanel'
 import { CommunityPanel } from './components/social/CommunityPanel'
@@ -707,6 +708,18 @@ function App() {
               <EmbeddingViewer />
             </div>
             <ModelComparisonPanel />
+            <ReportExportPanel
+              datasetName={selectedDataset}
+              model={model}
+              currentEpoch={currentEpoch}
+              nodes={nodes}
+              edges={edges}
+              history={history}
+              explanation={explanation}
+              trainingRunId={currentTrainingRunId}
+              onExportComplete={(format) => appendEvent(`${format} experiment report exported.`, 'success')}
+              onExportBlocked={() => appendEvent('Report popup was blocked. Allow popups and retry PDF export.', 'warn')}
+            />
             <ArchitectureBuilder
               model={model}
               schema={architecture}
